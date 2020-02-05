@@ -25,6 +25,11 @@ object Unparser {
           case MaxBinOp() =>
             unparse(leftexp) + " max " + unparse(rightexp)
         }
+      case UnOpExp(op, exp) =>
+        val expval = unparse(exp)
+        op match {
+          case NegUnOp() => "- " + expval
+        }
     }
   }
 }

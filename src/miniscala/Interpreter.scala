@@ -37,7 +37,9 @@ object Interpreter {
     case UnOpExp(op, exp) =>
       val expval = eval(exp)
       op match {
-        case NegUnOp() => -expval
+        case NegUnOp() =>
+          trace(s"Negating $exp")
+          -expval
       }
   }
 

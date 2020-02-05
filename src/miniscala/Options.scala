@@ -21,7 +21,7 @@ object Options {
 
   var run = false
 
-  var trace = false
+  var trace = true
 
   var file: String = _
 

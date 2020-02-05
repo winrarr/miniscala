@@ -17,7 +17,7 @@ object Interpreter {
           trace(s"Adding $rightval to $leftval")
           leftval + rightval
         case MinusBinOp() =>
-          trace(s"Subtracting $rightval to $leftval")
+          trace(s"Subtracting $rightval from $leftval")
           leftval - rightval
         case MultBinOp() =>
           trace(s"Multiplying $leftval and $rightval")

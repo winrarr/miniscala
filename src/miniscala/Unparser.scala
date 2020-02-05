@@ -7,7 +7,7 @@ import miniscala.Ast._
   */
 object Unparser {
 
-  def unparse(n: AstNode): String = {
+  def unparse(n: Exp): String = {
     n match {
       case IntLit(c) => c.toString
       case BinOpExp(leftexp, op, rightexp) =>
@@ -24,6 +24,11 @@ object Unparser {
             unparse(leftexp) + " % " + unparse(rightexp)
           case MaxBinOp() =>
             unparse(leftexp) + " max " + unparse(rightexp)
+        }
+      case UnOpExp(op, exp) =>
+        val expval = unparse(exp)
+        op match {
+          case NegUnOp() => "- " + expval
         }
     }
   }

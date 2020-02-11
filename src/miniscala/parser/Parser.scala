@@ -30,11 +30,45 @@ object Parser extends PackratParsers {
           expr(-2)
       case -2 =>
         literal |
+          identifier ^^ { id => VarExp(id.str).setPos(id.pos) } |
+          block |
           parens
     }
 
   private lazy val parens: PackratParser[Exp] =
     (LEFT_PAREN() ~ expr() ~ RIGHT_PAREN()) ^^ { case _ ~ exp ~ _ => exp }
+
+  private lazy val blockel: PackratParser[AstNode] = valdecl
+
+  private lazy val blockelmseq: PackratParser[List[AstNode]] = rep { blockel ~ SEMICOLON() } ^^ (_.map(_._1))
+
+  type BlockTupleType = List[ValDecl]
+
+  private def validBlock[T](l: List[T]): Option[BlockTupleType] = {
+    // Matchers for each part of the block
+    val matchers = List[Function[T, Boolean]](
+      { case _: ValDecl => true
+      case _ => false
+      })
+    // Extractor of the various parts of the block
+    val (remaining, splits) = matchers.foldLeft((l, List[List[T]]())) { case ((list: List[T], outcome: List[List[T]]), matcher) =>
+      val sublist = list.takeWhile(elm => matcher(elm))
+      (list.drop(sublist.size), sublist :: outcome)
+    }
+    val items = splits.reverse
+    if (remaining.isEmpty) Some(
+      items(0).map(_.asInstanceOf[ValDecl])
+    )
+    else None
+  }
+
+  private lazy val block: PackratParser[BlockExp] = positioned {
+    ((LEFT_BRACE() ~ blockelmseq ~ expr() ~ RIGHT_BRACE()) ^^ {case _ ~ l ~ exp ~ _ => validBlock(l).map(t => BlockExp(t, exp)) } filter(_.isDefined)) ^^ {_.get}
+  }
+
+  private lazy val valdecl: PackratParser[Decl] = positioned {
+    (VVAL() ~ identifier ~ EQ() ~ expr()) ^^ { case _ ~ id ~ _ ~ exp => ValDecl(id.str, exp) }
+  }
 
   private def binopexp(antiPrecedence: Int): PackratParser[Exp] =
     expr(antiPrecedence - 1) * {
@@ -65,6 +99,8 @@ object Parser extends PackratParsers {
   }
 
   private lazy val intliteral: PackratParser[INT] = accept("int literal", { case lit: INT => lit })
+
+  private lazy val identifier: PackratParser[IDENTIFIER] = accept("identifier", { case id@IDENTIFIER(name) => id })
 
   private lazy val plus: PackratParser[BinOp] = OP("+") ^^ { _ => PlusBinOp() }
 

@@ -22,7 +22,8 @@ object Main {
 
       // execute the program, if enabled
       if (Options.run) {
-        val result = Interpreter.eval(program)
+        val initialVarEnv = Interpreter.makeInitialVarEnv(program)
+        val result = Interpreter.eval(program, initialVarEnv)
         println(s"Output: $result")
       }
 

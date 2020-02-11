@@ -14,13 +14,13 @@ object Test {
   }
 
   def testUnparser(): Unit = {
-    var exp: String = "32 - 7 max 2 + 3"
-    assert(exp == Unparser.unparse(parse(exp)))
-    exp = "17 % 3 * 4 / 2"
-    assert(exp == Unparser.unparse(parse(exp)))
-    exp = "65 / 13 - 19 + 24"
-    assert(exp == Unparser.unparse(parse(exp)))
-    exp = "- 3"
+    UnparserTestHelper("32 - 7 max 2 + 3")
+    UnparserTestHelper("17 % 3 * 4 / 2")
+    UnparserTestHelper("65 / 13 - 19 + 24")
+    UnparserTestHelper("- 3")
+  }
+
+  def UnparserTestHelper(exp: String): Unit = {
     assert(exp == Unparser.unparse(parse(exp)))
   }
 }

@@ -47,11 +47,48 @@ object Interpreter {
           -expval
       }
     case BlockExp(vals, exp) =>
-      trace(s"Evaluating for variable environment: $venv")
+      trace(s"Evaluating for variable environment: $venv (next ${vals.size + 1} lines)")
       var venv1 = venv
       for (d <- vals)
         venv1 += (d.x -> eval(d.exp, venv1))
       eval(exp, venv1)
+  }
+
+  def simplify(exp: Exp): Exp = exp match {
+    case IntLit(c) => IntLit(c)
+    case BinOpExp(leftexp, o, rightexp) =>
+      val l = simplify(leftexp)
+      val r = simplify(rightexp)
+      o match {
+      case PlusBinOp() => trace("Simplifying plus operator")
+        if (l == IntLit(0)) return r
+        if (r == IntLit(0)) return l
+        BinOpExp(l, PlusBinOp(), r)
+      case MinusBinOp() => trace("Simplifying minus operator")
+        if (r == IntLit(0)) return l
+        if (l == r) return IntLit(0)
+        BinOpExp(l, MinusBinOp(), r)
+      case MultBinOp() => trace("Simplifying multiply operator")
+        if (l == IntLit(0) || r == IntLit(0)) return IntLit(0)
+        if (l == IntLit(1)) return r
+        if (r == IntLit(1)) return l
+        BinOpExp(l, MultBinOp(), r)
+      case DivBinOp() => trace("Simplifying division operator")
+        if (l == IntLit(0)) return IntLit(0)
+        if (r == IntLit(1)) return l
+        BinOpExp(l, DivBinOp(), r)
+      case ModuloBinOp() => trace("Simplifying modulo operator")
+        if (l == IntLit(0)) return IntLit(0)
+        if (r == IntLit(1)) return l
+        BinOpExp(l, ModuloBinOp(), r)
+      case MaxBinOp() => trace("Simplifying max operator")
+        if (l == r) return l
+        BinOpExp(l, MaxBinOp(), r)
+    }
+    case BlockExp(vals, exp) =>
+      if (vals.isEmpty) return simplify(exp)
+      BlockExp(vals, simplify(exp))
+    case VarExp(x) => VarExp(x)
   }
 
   /**

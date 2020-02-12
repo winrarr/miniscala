@@ -14,7 +14,7 @@ object Main {
       Options.read(args)
 
       // parse the program
-      val program = Parser.parse(Parser.readFile(Options.file))
+      val program = Interpreter.simplify(Parser.parse(Parser.readFile(Options.file)))
 
       // unparse the program, if enabled
       if (Options.unparse)

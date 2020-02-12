@@ -29,7 +29,7 @@ object Unparser {
       case BlockExp(vals, exp) =>
         var valsString: String = "{ "
         for (v <- vals) {
-          valsString += s"${v.x} = ${unparse(v.exp)}; "
+          valsString += s"val ${v.x} = ${unparse(v.exp)}; "
         }
         valsString + unparse(exp) + " }"
       case VarExp(x) => x.toString

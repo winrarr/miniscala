@@ -1,6 +1,7 @@
 package miniscala
 
 import miniscala.Ast._
+import miniscala.Interpreter.lookup
 
 import scala.io.StdIn
 
@@ -9,11 +10,24 @@ import scala.io.StdIn
   */
 object Interpreter {
 
+  sealed abstract class VarEnv {
+    def extend(e: VarEnv, x: Var, v: Int): VarEnv = ConsVarEnv(x, v, this)
+    def lookup(x: Var): Int
+  }
+
+  private case class ConsVarEnv(x: Var, v: Int, next: VarEnv) extends VarEnv {
+    override def lookup(x: Var): Int = if (x == this.x) this.v else next.lookup(x)
+  }
+
+  private case object NilVarEnv extends VarEnv {
+    override def lookup(x: Var): Int = throw new RuntimeException("not found")
+  }
+
   type VarEnv = Map[Var, Int]
 
   def eval(e: Exp, venv: VarEnv): Int = e match {
     case IntLit(c) => c
-    case VarExp(x) => venv(x)
+    case VarExp(x) => venv.lookup(x)
     case BinOpExp(leftexp, op, rightexp) =>
       val leftval = eval(leftexp, venv)
       val rightval = eval(rightexp, venv)

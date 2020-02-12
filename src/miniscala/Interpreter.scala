@@ -18,26 +18,39 @@ object Interpreter {
       val leftval = eval(leftexp, venv)
       val rightval = eval(rightexp, venv)
       op match {
-        case PlusBinOp() => leftval + rightval
-        case MinusBinOp() => ???
-        case MultBinOp() => ???
+        case PlusBinOp() =>
+          trace(s"Adding $leftval to $rightval")
+          leftval + rightval
+        case MinusBinOp() =>
+          trace(s"Subtracting $rightval from $leftval")
+          leftval - rightval
+        case MultBinOp() =>
+          trace(s"Multiplying $leftval and $rightval")
+          leftval * rightval
         case DivBinOp() =>
           if (rightval == 0)
             throw new InterpreterError(s"Division by zero", op)
+          trace(s"Dividing $leftval by $rightval")
           leftval / rightval
-        case ModuloBinOp() => ???
+        case ModuloBinOp() =>
+          trace(s"Computing $leftval mod $rightval")
+          leftval % rightval
         case MaxBinOp() =>
-          if (???) ??? else ???
+          trace(s"Finding max value of $leftval and $rightval")
+          if (leftval > rightval) leftval else rightval
       }
     case UnOpExp(op, exp) =>
       val expval = eval(exp, venv)
       op match {
-        case NegUnOp() => -expval
+        case NegUnOp() =>
+          trace(s"Computing negative value of $expval")
+          -expval
       }
     case BlockExp(vals, exp) =>
+      trace(s"Evaluating for variable environment: $venv")
       var venv1 = venv
       for (d <- vals)
-        venv1 = venv1 + (d.x -> eval(d.exp, venv1))
+        venv1 += (d.x -> eval(d.exp, venv1))
       eval(exp, venv1)
   }
 

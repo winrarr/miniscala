@@ -85,7 +85,7 @@ object Interpreter {
         if (l == r) return l
         BinOpExp(l, MaxBinOp(), r)
     }
-    case BlockExp(vals, exp) =>
+    case BlockExp(vals, exp) => trace("Simplifying block expression")
       if (vals.isEmpty) return simplify(exp)
       BlockExp(vals, simplify(exp))
     case VarExp(x) => VarExp(x)

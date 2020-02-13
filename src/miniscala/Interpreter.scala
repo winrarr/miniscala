@@ -1,7 +1,6 @@
 package miniscala
 
 import miniscala.Ast._
-import miniscala.Interpreter.lookup
 
 import scala.io.StdIn
 
@@ -113,7 +112,11 @@ object Interpreter {
       print(s"Please provide an integer value for the variable $x: ")
       venv = venv + (x -> StdIn.readInt())
     }
-    venv
+    var res: VarEnv = NilVarEnv
+    for (d <- venv) {
+      res = res.extend(res, d._1, d._2)
+    }
+    res
   }
 
   /**

@@ -18,7 +18,7 @@ object Ast {
   type Var = String
 
   /**
-    * Expressions.
+    * Expressions (excluding literals).
     */
   sealed abstract class Exp extends AstNode
 
@@ -28,9 +28,26 @@ object Ast {
 
   case class UnOpExp(op: UnOp, exp: Exp) extends Exp
 
-  case class IntLit(c: Int) extends Exp
+  case class IfThenElseExp(condexp: Exp, thenexp: Exp, elseexp: Exp) extends Exp
 
   case class BlockExp(vals: List[ValDecl], exp: Exp) extends Exp
+
+  case class TupleExp(exps: List[Exp]) extends Exp
+
+  case class MatchExp(exp: Exp, cases: List[MatchCase]) extends Exp
+
+  /**
+    * Literals.
+    */
+  sealed abstract class Literal extends Exp
+
+  case class IntLit(c: Int) extends Literal
+
+  case class BoolLit(c: Boolean) extends Literal
+
+  case class FloatLit(c: Float) extends Literal
+
+  case class StringLit(c: String) extends Literal
 
   /**
     * Binary operators.
@@ -45,9 +62,19 @@ object Ast {
 
   case class DivBinOp() extends BinOp
 
+  case class EqualBinOp() extends BinOp
+
+  case class LessThanBinOp() extends BinOp
+
+  case class LessThanOrEqualBinOp() extends BinOp
+
   case class ModuloBinOp() extends BinOp
 
   case class MaxBinOp() extends BinOp
+
+  case class AndBinOp() extends BinOp
+
+  case class OrBinOp() extends BinOp
 
   /**
     * Unary operators.
@@ -56,12 +83,34 @@ object Ast {
 
   case class NegUnOp() extends UnOp
 
+  case class NotUnOp() extends UnOp
+
   /**
     * Declarations.
     */
   sealed abstract class Decl extends AstNode
 
-  case class ValDecl(x: Var, exp: Exp) extends Decl
+  case class ValDecl(x: Var, opttype: Option[Type], exp: Exp) extends Decl
+
+  /**
+    * Match cases.
+    */
+  case class MatchCase(pattern: List[Var], exp: Exp) extends AstNode
+
+  /**
+    * Types.
+    */
+  sealed abstract class Type extends AstNode
+
+  case class IntType() extends Type
+
+  case class BoolType() extends Type
+
+  case class FloatType() extends Type
+
+  case class StringType() extends Type
+
+  case class TupleType(types: List[Type]) extends Type
 
   /**
     * Exception with a message and (optionally) a source code position.

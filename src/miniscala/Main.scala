@@ -14,17 +14,23 @@ object Main {
       Options.read(args)
 
       // parse the program
-      val program = Interpreter.simplify(Parser.parse(Parser.readFile(Options.file)))
+      val program = Parser.parse(Parser.readFile(Options.file))
 
       // unparse the program, if enabled
       if (Options.unparse)
         println(Unparser.unparse(program))
 
+      // type check the program, if enabled
+      if (Options.types) {
+        val initialVarTypeEnv = TypeChecker.makeInitialVarTypeEnv(program)
+        TypeChecker.typeCheck(program, initialVarTypeEnv)
+      }
+
       // execute the program, if enabled
       if (Options.run) {
         val initialVarEnv = Interpreter.makeInitialVarEnv(program)
         val result = Interpreter.eval(program, initialVarEnv)
-        println(s"Output: $result")
+        println(s"Output: ${Interpreter.valueToString(result)}")
       }
 
     } catch { // report all errors to the console

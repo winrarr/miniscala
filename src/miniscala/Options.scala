@@ -14,6 +14,7 @@ object Options {
       |  (none)    only parse the program
       |  -unparse  parse and unparse the program
       |  -run      parse and run the program
+      |  -types    parse and type-check the program
       |  -trace    trace when running
     """.stripMargin
 
@@ -21,7 +22,9 @@ object Options {
 
   var run = false
 
-  var trace = true
+  var types = false
+
+  var trace = false
 
   var file: String = _
 
@@ -34,6 +37,7 @@ object Options {
         arg match {
           case "-unparse" => unparse = true
           case "-run" => run = true
+          case "-types" => types = true
           case "-trace" => trace = true
           case _ =>
             throw new OptionsError(s"Error: option not recognized: $arg")

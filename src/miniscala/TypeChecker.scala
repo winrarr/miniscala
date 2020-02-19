@@ -1,6 +1,7 @@
 package miniscala
 
 import miniscala.Ast._
+import miniscala.TypeChecker.typeCheck
 import miniscala.Unparser.unparse
 
 /**
@@ -12,10 +13,10 @@ object TypeChecker {
 
   def typeCheck(e: Exp, vtenv: VarTypeEnv): Type = e match {
     case IntLit(_) => IntType()
-    case BoolLit(_) => ???
-    case FloatLit(_) => ???
-    case StringLit(_) => ???
-    case VarExp(x) => ???
+    case BoolLit(_) => BoolType()
+    case FloatLit(_) => FloatType()
+    case StringLit(_) => StringType()
+    case VarExp(x) => vtenv.getOrElse(x, throw new TypeError(s"Unknown identifier '$x'", e))
     case BinOpExp(leftexp, op, rightexp) =>
       val lefttype = typeCheck(leftexp, vtenv)
       val righttype = typeCheck(rightexp, vtenv)
@@ -33,9 +34,16 @@ object TypeChecker {
             case (FloatType(), StringType()) => StringType()
             case _ => throw new TypeError(s"Type mismatch at '+', unexpected types ${unparse(lefttype)} and ${unparse(righttype)}", op)
           }
-        case MinusBinOp() | MultBinOp() | DivBinOp() | ModuloBinOp() | MaxBinOp() => ???
-        case EqualBinOp() => ???
-        case LessThanBinOp() | LessThanOrEqualBinOp() => ???
+        case MinusBinOp() | MultBinOp() | DivBinOp() | ModuloBinOp() | MaxBinOp() =>
+          (lefttype, righttype) match {
+            case (IntType(), IntType()) => IntType()
+            case (FloatType(), FloatType()) => FloatType()
+            case (IntType(), FloatType()) => FloatType()
+            case (FloatType(), IntType()) => FloatType()
+            case _ => throw new TypeError(s"Type mismatch, unexpected types ${unparse(lefttype)} and ${unparse(righttype)}", op)
+          }
+        case EqualBinOp() => BoolType()
+        case LessThanBinOp() | LessThanOrEqualBinOp() => BoolType()
         case AndBinOp() | OrBinOp() => ???
       }
     case UnOpExp(op, exp) => ???
@@ -48,14 +56,14 @@ object TypeChecker {
         vtenv1 = vtenv1 + (d.x -> d.opttype.getOrElse(t))
       }
       ???
-    case TupleExp(exps) => TupleType(???)
+    case TupleExp(exps) => TupleType(exps.map(e => typeCheck(e, vtenv)))
     case MatchExp(exp, cases) =>
       val exptype = typeCheck(exp, vtenv)
       exptype match {
         case TupleType(ts) =>
           for (c <- cases) {
             if (ts.length == c.pattern.length) {
-              ???
+              typeCheck(c.exp, vtenv)
             }
           }
           throw new TypeError(s"No case matches type ${unparse(exptype)}", e)

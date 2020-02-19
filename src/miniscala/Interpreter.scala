@@ -41,6 +41,7 @@ object Interpreter {
             case (StringVal(v1), FloatVal(v2)) => StringVal(v1 + v2.toString)
             case (IntVal(v1), StringVal(v2)) => StringVal(v1.toString + v2)
             case (FloatVal(v1), StringVal(v2)) => StringVal(v1.toString + v2)
+            case (TupleVal(v1), TupleVal(v2)) => TupleVal(v1)
             case _ => throw new InterpreterError(s"Type mismatch at '+', unexpected values ${valueToString(leftval)} and ${valueToString(rightval)}", op)
           }
         case MinusBinOp() =>
@@ -49,7 +50,7 @@ object Interpreter {
             case (FloatVal(v1), FloatVal(v2)) => FloatVal(v1 - v2)
             case (IntVal(v1), FloatVal(v2)) => FloatVal(v1 - v2)
             case (FloatVal(v1), IntVal(v2)) => FloatVal(v1 - v2)
-            case _ => throw new InterpreterError(s"Type mismatch at '+', unexpected values ${valueToString(leftval)} and ${valueToString(rightval)}", op)
+            case _ => throw new InterpreterError(s"Type mismatch at '-', unexpected values ${valueToString(leftval)} and ${valueToString(rightval)}", op)
           }
         case MultBinOp() =>
           (leftval, rightval) match {
@@ -57,7 +58,7 @@ object Interpreter {
             case (FloatVal(v1), FloatVal(v2)) => FloatVal(v1 * v2)
             case (IntVal(v1), FloatVal(v2)) => FloatVal(v1 * v2)
             case (FloatVal(v1), IntVal(v2)) => FloatVal(v1 * v2)
-            case _ => throw new InterpreterError(s"Type mismatch at '+', unexpected values ${valueToString(leftval)} and ${valueToString(rightval)}", op)
+            case _ => throw new InterpreterError(s"Type mismatch at '*', unexpected values ${valueToString(leftval)} and ${valueToString(rightval)}", op)
           }
         case DivBinOp() =>
           if (rightval == IntVal(0) || rightval == FloatVal(0.0f))
@@ -145,7 +146,7 @@ object Interpreter {
       val cexp = eval(condexp, venv)
       cexp match {
         case (BoolVal(v)) => if (v) eval(thenexp, venv) else eval(elseexp, venv)
-        case _ => throw new InterpreterError(s"Type mismatch at '!', unexpected value ${valueToString(expval)}", op)
+        case _ => throw new InterpreterError(s"Type mismatch at 'ifThenElse', unexpected value ${valueToString(cexp)}", condexp)
       }
     case BlockExp(vals, exp) =>
       var venv1 = venv
@@ -165,7 +166,11 @@ object Interpreter {
         case TupleVal(vs) =>
           for (c <- cases) {
             if (vs.length == c.pattern.length) {
-              ???
+              var venv1 = venv
+              for (i <- 0 to vs.length) {
+                venv1 += (c.pattern(i) -> vs(i))
+              }
+              eval(c.exp, venv1)
             }
           }
           throw new InterpreterError(s"No case matches value ${valueToString(expval)}", e)

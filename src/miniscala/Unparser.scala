@@ -9,6 +9,10 @@ object Unparser {
 
   def unparse(n: AstNode): String = n match {
     case IntLit(c) => c.toString
+    case BoolLit(c) => c.toString
+    case FloatLit(c) => c.toString
+    case StringLit(c) => c
+    case VarExp(x) => x
     case BinOpExp(leftexp, op, rightexp) =>
       val leftval = unparse(leftexp)
       val rightval = unparse(rightexp)
@@ -22,13 +26,14 @@ object Unparser {
         case EqualBinOp() => leftval + " == " + rightval
         case LessThanBinOp() => leftval + " < " + rightval
         case LessThanOrEqualBinOp() => leftval + " <= " + rightval
-        case AndBinOp() => leftval + " && " + rightval
-        case OrBinOp() => leftval + " || " + rightval
+        case AndBinOp() => leftval + " & " + rightval
+        case OrBinOp() => leftval + " | " + rightval
       }
     case UnOpExp(op, exp) =>
       val expval = unparse(exp)
       op match {
         case NegUnOp() => "- " + expval
+        case NotUnOp() => "!" + expval
       }
     case BlockExp(vals, exp) =>
       var valsString: String = "{ "
@@ -36,7 +41,6 @@ object Unparser {
         valsString += s"val ${v.x} = ${unparse(v.exp)}; "
       }
       valsString + unparse(exp) + " }"
-    case VarExp(x) => x.toString
     case IfThenElseExp(condexp, thenexp, elseexp) =>
       s"if (${unparse(condexp)}) ${unparse(thenexp)} else ${unparse(elseexp)}"
     case TupleExp(exps) =>

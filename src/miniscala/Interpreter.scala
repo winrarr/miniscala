@@ -80,18 +80,27 @@ object Interpreter {
             case (FloatVal(v1), IntVal(v2)) => FloatVal(v1 % v2)
             case _ => throw new InterpreterError(s"Type mismatch at '%', unexpected values ${valueToString(leftval)} and ${valueToString(rightval)}", op)
           }
-        case EqualBinOp() => BoolVal(leftval == rightval)
+        case EqualBinOp() =>
+          (leftval, rightval) match {
+            case (IntVal(v1), IntVal(v2)) => BoolVal(v1 == v2)
+            case (FloatVal(v1), FloatVal(v2)) => BoolVal(v1 == v2)
+            case (IntVal(v1), FloatVal(v2)) => BoolVal(v1 == v2)
+            case (FloatVal(v1), IntVal(v2)) => BoolVal(v1 == v2)
+            case (StringVal(v1), StringVal(v2)) => BoolVal(v1.equals(v2))
+            case (TupleVal(vs1), TupleVal(vs2)) =>
+              if (vs1.length != vs2.length) return BoolVal(false)
+              for (i <- 0 to vs1.length) {
+                if (vs1(i) != vs2(i)) return BoolVal(false)
+              }
+              BoolVal(true)
+            case _ => throw new InterpreterError(s"Type mismatch at '==', unexpected values ${valueToString(leftval)} and ${valueToString(rightval)}", op)
+          }
         case LessThanBinOp() =>
           (leftval, rightval) match {
             case (IntVal(v1), IntVal(v2)) => BoolVal(v1 < v2)
             case (FloatVal(v1), FloatVal(v2)) => BoolVal(v1 < v2)
             case (IntVal(v1), FloatVal(v2)) => BoolVal(v1 < v2)
             case (FloatVal(v1), IntVal(v2)) => BoolVal(v1 < v2)
-            case (StringVal(v1), StringVal(v2)) => BoolVal(v1 < v2)
-            case (StringVal(v1), IntVal(v2)) => BoolVal(v1 < v2.toString)
-            case (StringVal(v1), FloatVal(v2)) => BoolVal(v1 < v2.toString)
-            case (IntVal(v1), StringVal(v2)) => BoolVal(v1.toString < v2)
-            case (FloatVal(v1), StringVal(v2)) => BoolVal(v1.toString < v2)
             case _ => throw new InterpreterError(s"Type mismatch at '<', unexpected values ${valueToString(leftval)} and ${valueToString(rightval)}", op)
           }
         case LessThanOrEqualBinOp() =>
@@ -100,20 +109,14 @@ object Interpreter {
             case (FloatVal(v1), FloatVal(v2)) => BoolVal(v1 <= v2)
             case (IntVal(v1), FloatVal(v2)) => BoolVal(v1 <= v2)
             case (FloatVal(v1), IntVal(v2)) => BoolVal(v1 <= v2)
-            case (StringVal(v1), StringVal(v2)) => BoolVal(v1 <= v2)
-            case (StringVal(v1), IntVal(v2)) => BoolVal(v1 <= v2.toString)
-            case (StringVal(v1), FloatVal(v2)) => BoolVal(v1 <= v2.toString)
-            case (IntVal(v1), StringVal(v2)) => BoolVal(v1.toString <= v2)
-            case (FloatVal(v1), StringVal(v2)) => BoolVal(v1.toString <= v2)
             case _ => throw new InterpreterError(s"Type mismatch at '<=', unexpected values ${valueToString(leftval)} and ${valueToString(rightval)}", op)
           }
         case MaxBinOp() =>
           (leftval, rightval) match {
             case (IntVal(v1), IntVal(v2)) => if (v1 > v2) IntVal(v1) else IntVal(v2)
             case (FloatVal(v1), FloatVal(v2)) => if (v1 > v2) FloatVal(v1) else FloatVal(v2)
-            case (IntVal(v1), FloatVal(v2)) => if (v1 > v2) IntVal(v1) else FloatVal(v2)
-            case (FloatVal(v1), IntVal(v2)) => if (v1 > v2) FloatVal(v1) else IntVal(v2)
-            case (StringVal(v1), StringVal(v2)) => if (v1 > v2) StringVal(v1) else StringVal(v2)
+            case (IntVal(v1), FloatVal(v2)) => if (v1 > v2) FloatVal(v1) else FloatVal(v2)
+            case (FloatVal(v1), IntVal(v2)) => if (v1 > v2) FloatVal(v1) else FloatVal(v2)
             case _ => throw new InterpreterError(s"Type mismatch at 'max', unexpected values ${valueToString(leftval)} and ${valueToString(rightval)}", op)
           }
         case AndBinOp() =>
@@ -152,6 +155,7 @@ object Interpreter {
       var venv1 = venv
       for (d <- vals) {
         val v = eval(d.exp, venv1)
+        checkValueType(v, d.opttype, d.exp)
         venv1 = venv1 + (d.x -> v)
       }
       eval(exp, venv1)
@@ -167,10 +171,10 @@ object Interpreter {
           for (c <- cases) {
             if (vs.length == c.pattern.length) {
               var venv1 = venv
-              for (i <- 0 to vs.length) {
-                venv1 += (c.pattern(i) -> vs(i))
+              for (i <- 0 to vs.length - 1) {
+                venv1 = venv1 + (c.pattern(i) -> vs(i))
               }
-              eval(c.exp, venv1)
+              return eval(c.exp, venv1)
             }
           }
           throw new InterpreterError(s"No case matches value ${valueToString(expval)}", e)

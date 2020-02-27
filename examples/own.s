@@ -1,1 +1,1 @@
-(1, 2, 3, 4) match { case (a,b,c,d) => d }
+{ def fib(n: Int): Int = if (n <= 1) n else fib(n - 1) + fib(n - 2); fib(8) }

@@ -17,6 +17,8 @@ object Ast {
     */
   type Var = String
 
+  type Fun = String
+
   /**
     * Expressions (excluding literals).
     */
@@ -30,11 +32,13 @@ object Ast {
 
   case class IfThenElseExp(condexp: Exp, thenexp: Exp, elseexp: Exp) extends Exp
 
-  case class BlockExp(vals: List[ValDecl], exp: Exp) extends Exp
+  case class BlockExp(vals: List[ValDecl], defs: List[DefDecl], exp: Exp) extends Exp
 
   case class TupleExp(exps: List[Exp]) extends Exp
 
   case class MatchExp(exp: Exp, cases: List[MatchCase]) extends Exp
+
+  case class CallExp(fun: Fun, args: List[Exp]) extends Exp
 
   /**
     * Literals.
@@ -91,6 +95,13 @@ object Ast {
   sealed abstract class Decl extends AstNode
 
   case class ValDecl(x: Var, opttype: Option[Type], exp: Exp) extends Decl
+
+  case class DefDecl(fun: Fun, params: List[FunParam], optrestype: Option[Type], body: Exp) extends Decl
+
+  /**
+    * Function parameters.
+    */
+  case class FunParam(x: Var, opttype: Option[Type]) extends AstNode
 
   /**
     * Match cases.

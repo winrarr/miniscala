@@ -23,13 +23,15 @@ object Main {
       // type check the program, if enabled
       if (Options.types) {
         val initialVarTypeEnv = TypeChecker.makeInitialVarTypeEnv(program)
-        TypeChecker.typeCheck(program, initialVarTypeEnv)
+        val initialFunTypeEnv: TypeChecker.FunTypeEnv = Map()
+        TypeChecker.typeCheck(program, initialVarTypeEnv, initialFunTypeEnv)
       }
 
       // execute the program, if enabled
       if (Options.run) {
         val initialVarEnv = Interpreter.makeInitialVarEnv(program)
-        val result = Interpreter.eval(program, initialVarEnv)
+        val initialFunEnv: Interpreter.FunEnv = Map()
+        val result = Interpreter.eval(program, initialVarEnv, initialFunEnv)
         println(s"Output: ${Interpreter.valueToString(result)}")
       }
 

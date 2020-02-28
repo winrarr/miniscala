@@ -17,7 +17,7 @@ object Interpreter {
   case class StringVal(v: String) extends Val
   case class TupleVal(vs: List[Val]) extends Val
 
-  case class Closure(params: List[FunParam], optrestype: Option[Type], body: Exp, venv: VarEnv, fenv: FunEnv)
+  case class Closure(params: List[FunParam], optrestype: Option[Type], body: Exp, venv: VarEnv, fenv: FunEnv, defs: List[DefDecl])
 
   type VarEnv = Map[Var, Val]
 
@@ -162,7 +162,7 @@ object Interpreter {
       }
       var fenv1 = fenv
       for (d <- defs) {
-        fenv1 = fenv1 + (d.fun -> Closure(d.params, d.optrestype, d.body, venv1, fenv1))
+        fenv1 = fenv1 + (d.fun -> Closure(d.params, d.optrestype, d.body, venv1, fenv1, defs))
       }
       eval(exp, venv1, fenv1)
     case TupleExp(exps) =>
@@ -196,7 +196,12 @@ object Interpreter {
         checkValueType(arg, func.params(i).opttype, func.params(i))
         venv1 = venv1 + (func.params(i).x -> arg)
       }
-      eval(func.body, venv1, fenv + (fun -> func) ++ func.fenv)
+      var fenv1 = func.fenv + (fun -> func)
+      for (f <- func.defs) {
+        fenv1 = fenv1 + (f.fun -> Closure(f.params, f.optrestype, f.body, func.venv, func.fenv, func.defs))
+      }
+
+      eval(func.body, venv1, func.fenv + (fun -> func) ++ fenv1)
   }
 
   /**

@@ -3,11 +3,11 @@ package miniscala
 import miniscala.Ast._
 
 /**
-  * Computation of free variables.
+  * Computation of free variables (or rather, identifiers).
   */
 object Vars {
 
-  def freeVars(e: Exp): Set[Var] = e match {
+  def freeVars(e: Exp): Set[Id] = e match {
     case _: Literal => Set()
     case VarExp(x) => Set(x)
     case BinOpExp(leftexp, _, rightexp) => freeVars(leftexp) ++ freeVars(rightexp)
@@ -23,7 +23,7 @@ object Vars {
         fv = fv -- declaredVars(d) ++ freeVars(d)
       fv
     case TupleExp(exps) =>
-      var fv = Set[Var]()
+      var fv = Set[Id]()
       for (exp <- exps)
         fv = fv ++ freeVars(exp)
       fv
@@ -32,20 +32,18 @@ object Vars {
       for (c <- cases)
         fv = fv ++ (freeVars(c.exp) -- c.pattern)
       fv
-    case CallExp(_, args) =>
-      var fv = Set[Var]()
-      for (exp <- args)
-        fv = fv ++ freeVars(exp)
-      fv
+    case CallExp(funexp, args) =>
+      ???
+    case LambdaExp(params, body) => freeVars(body) -- params.map(p => p.x)
   }
 
-  def freeVars(decl: Decl): Set[Var] = decl match {
+  def freeVars(decl: Decl): Set[Id] = decl match {
     case ValDecl(_, _, exp) => freeVars(exp)
     case DefDecl(_, params, _, body) => freeVars(body) -- params.map(p => p.x)
   }
 
-  def declaredVars(decl: Decl): Set[Var] = decl match {
+  def declaredVars(decl: Decl): Set[Id] = decl match {
     case ValDecl(x, _, _) => Set(x)
-    case DefDecl(_, _, _, _) => Set()
+    case DefDecl(x, _, _, _) => Set(x)
   }
 }

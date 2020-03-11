@@ -20,21 +20,26 @@ object Parser extends PackratParsers {
 
   private lazy val prog: PackratParser[Exp] = phrase { expr() }
 
-  private def expr(antiPrecedence: Int = 7): PackratParser[Exp] =
+  private def expr(antiPrecedence: Int = 8): PackratParser[Exp] =
     antiPrecedence match {
-      case 7 =>
+      case 8 =>
         ifthenelse |
-          mmatch |
+          lambda |
+          expr(7)
+      case 7 =>
+        mmatch |
           expr(6)
       case x if x >= 0 =>
         binopexp(antiPrecedence) |
           expr(x - 1)
       case -1 =>
         unopexp |
-          call |
+          call(Context.None) |
           tupleexp |
           expr(-2)
       case -2 =>
+          expr(-3)
+      case -3 =>
         literal |
           identifier ^^ { id => VarExp(id.str).setPos(id.pos) } |
           block |
@@ -97,11 +102,30 @@ object Parser extends PackratParsers {
     ((LEFT_BRACE() ~ blockelmseq ~ expr() ~ RIGHT_BRACE()) ^^ {case _ ~ l ~ exp ~ _ => validBlock(l).map(t => BlockExp(t._1, t._2, exp)) } filter(_.isDefined)) ^^ {_.get}
   }
 
-  private lazy val call: PackratParser[Exp] = positioned {
-    (identifier ~ appl) ^^ { case id ~ args => CallExp(id.str, args) }
-  }
+  private def call(context: Context.Value): PackratParser[Exp] =
+    context match {
+      case Context.Lookup =>
+        (identifier ~ rep1(appl)) ^^ { case target ~ applications => applications.tail.foldLeft(CallExp(VarExp(target.str), applications.head).setPos(target.pos)) { case (curr, acc) => CallExp(curr, acc).setPos(curr.pos) } }
+      case _ =>
+        (expr(-2) ~ rep1(appl)) ^^ { case target ~ applications => applications.tail.foldLeft(CallExp(target, applications.head).setPos(target.pos)) { case (curr, acc) => CallExp(curr, acc).setPos(curr.pos) } }
+    }
 
   private lazy val appl: PackratParser[List[Exp]] = (LEFT_PAREN() ~ repsep(expr(), COMMA()) ~ RIGHT_PAREN()) ^^ { case _ ~ apps ~ _ => apps }
+
+  private lazy val lambda: PackratParser[Exp] = positioned {
+    LEFT_PAREN() ~ repsep(identifier ~ opttypeannotation, COMMA()) ~ RIGHT_PAREN() ~ ARROW() ~ expr() ^^ {
+      case _ ~ identifiers ~ _ ~ _ ~ body =>
+        LambdaExp(identifiers.map(p => FunParam(p._1.str, p._2).setPos(p._1.pos)), body)
+    }
+  }
+
+  private def replaceVarTarget(callExp: CallExp, newTarget: VarExp => Exp): CallExp = {
+    callExp match {
+      case CallExp(id: VarExp, a) => CallExp(newTarget(id), a)
+      case CallExp(e: CallExp, a) => CallExp(replaceVarTarget(e, newTarget), a)
+      case _ => ???
+    }
+  }.setPos(callExp.pos)
 
   private lazy val valdecl: PackratParser[Decl] = positioned {
     (VVAL() ~ identifier ~ opttypeannotation ~ EQ() ~ expr()) ^^ { case _ ~ id ~ t ~ _ ~ exp => ValDecl(id.str, t, exp) }
@@ -143,8 +167,24 @@ object Parser extends PackratParsers {
     */
   type TypeOrList = Either[Type, TupleType]
 
-  private lazy val complextype: PackratParser[TypeOrList] =
-    nonfuntype
+  private lazy val complextype: PackratParser[TypeOrList] = {
+    rep1sep(nonfuntype, ARROW()) ^^ { items =>
+      // right-associative
+      val revItems = items.reverse
+      revItems.tail.foldLeft(revItems.head) { case (r, l) =>
+        val left = l match {
+          case Left(TupleType(lvs)) => lvs // (T, T') => T
+          case Left(x) => List(x) // T => T'
+          case Right(lvs) => List(lvs) // ((T, T')) => T
+        }
+        val right = r match {
+          case Left(rv) => rv // T => (T, T')
+          case Right(rvs) => rvs // T => ((T, T'))
+        }
+        Left(FunType(left, right))
+      }
+    }
+  }
 
   private lazy val nonfuntype: PackratParser[TypeOrList] = {
     simpletype ^^ { t => t.str match {
@@ -157,7 +197,7 @@ object Parser extends PackratParsers {
     } |
       (LEFT_PAREN() ~ RIGHT_PAREN()) ^^ { case _ ~ _ => Left(TupleType(Nil)) } |
       (LEFT_PAREN() ~ typeannotation ~ COMMA() ~ rep1sep(typeannotation, COMMA()) ~ RIGHT_PAREN()) ^^ { case _ ~ t0 ~ _ ~ ts ~ _ => Left(TupleType(t0 :: ts)) } |
-      (LEFT_PAREN() ~ complextype ~ RIGHT_PAREN()) ^^ { case _ ~ t ~ _ => t match { // detection possibly useless parenthesis
+      (LEFT_PAREN() ~ complextype ~ RIGHT_PAREN()) ^^ { case _ ~ t ~ _ => t match { // detection of possibly useless parenthesis
         case Left(TupleType(it)) => Right(TupleType(it))  // if parenthesis was of the kind ((T, T')) we generate a Right
         case Right(x) => Right(x)                         // we ignore any further nesting, i.e. (((T, T'))) == ((T, T'))
         case Left(x) => Left(x)                           // parenthesization of a non-tuple type: ignoring nesting
@@ -251,6 +291,10 @@ object Parser extends PackratParsers {
       case e: IOException =>
         throw new MiniScalaError(s"Unable to read file ${e.getMessage}", NoPosition)
     }
+  }
+
+  object Context extends Enumeration {
+    val None, Lookup = Value
   }
 
   class SyntaxError(pos: Position) extends MiniScalaError(s"Syntax error", pos)

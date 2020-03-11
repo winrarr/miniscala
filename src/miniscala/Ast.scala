@@ -15,16 +15,14 @@ object Ast {
   /**
     * Identifiers are just strings.
     */
-  type Var = String
-
-  type Fun = String
+  type Id = String
 
   /**
     * Expressions (excluding literals).
     */
   sealed abstract class Exp extends AstNode
 
-  case class VarExp(x: Var) extends Exp
+  case class VarExp(x: Id) extends Exp
 
   case class BinOpExp(leftexp: Exp, op: BinOp, rightexp: Exp) extends Exp
 
@@ -38,7 +36,9 @@ object Ast {
 
   case class MatchExp(exp: Exp, cases: List[MatchCase]) extends Exp
 
-  case class CallExp(fun: Fun, args: List[Exp]) extends Exp
+  case class CallExp(funexp: Exp, args: List[Exp]) extends Exp
+
+  case class LambdaExp(params: List[FunParam], body: Exp) extends Exp
 
   /**
     * Literals.
@@ -94,19 +94,19 @@ object Ast {
     */
   sealed abstract class Decl extends AstNode
 
-  case class ValDecl(x: Var, opttype: Option[Type], exp: Exp) extends Decl
+  case class ValDecl(x: Id, opttype: Option[Type], exp: Exp) extends Decl
 
-  case class DefDecl(fun: Fun, params: List[FunParam], optrestype: Option[Type], body: Exp) extends Decl
+  case class DefDecl(fun: Id, params: List[FunParam], optrestype: Option[Type], body: Exp) extends Decl
 
   /**
     * Function parameters.
     */
-  case class FunParam(x: Var, opttype: Option[Type]) extends AstNode
+  case class FunParam(x: Id, opttype: Option[Type]) extends AstNode
 
   /**
     * Match cases.
     */
-  case class MatchCase(pattern: List[Var], exp: Exp) extends AstNode
+  case class MatchCase(pattern: List[Id], exp: Exp) extends AstNode
 
   /**
     * Types.
@@ -122,6 +122,8 @@ object Ast {
   case class StringType() extends Type
 
   case class TupleType(types: List[Type]) extends Type
+
+  case class FunType(paramtypes: List[Type], restype: Type) extends Type
 
   /**
     * Exception with a message and (optionally) a source code position.

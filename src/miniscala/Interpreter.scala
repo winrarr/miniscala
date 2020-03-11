@@ -16,23 +16,20 @@ object Interpreter {
   case class FloatVal(v: Float) extends Val
   case class StringVal(v: String) extends Val
   case class TupleVal(vs: List[Val]) extends Val
+  case class ClosureVal(params: List[FunParam], optrestype: Option[Type], body: Exp, env: Env, defs: List[DefDecl]) extends Val
 
-  case class Closure(params: List[FunParam], optrestype: Option[Type], body: Exp, venv: VarEnv, fenv: FunEnv, defs: List[DefDecl])
+  type Env = Map[Id, Val]
 
-  type VarEnv = Map[Var, Val]
-
-  type FunEnv = Map[Fun, Closure]
-
-  def eval(e: Exp, venv: VarEnv, fenv: FunEnv): Val = e match {
+  def eval(e: Exp, env: Env): Val = e match {
     case IntLit(c) => IntVal(c)
     case BoolLit(c) => BoolVal(c)
     case FloatLit(c) => FloatVal(c)
     case StringLit(c) => StringVal(c)
     case VarExp(x) =>
-      venv.getOrElse(x, throw new InterpreterError(s"Unknown identifier '$x'", e))
+      env.getOrElse(x, throw new InterpreterError(s"Unknown identifier '$x'", e))
     case BinOpExp(leftexp, op, rightexp) =>
-      val leftval = eval(leftexp, venv, fenv)
-      val rightval = eval(rightexp, venv, fenv)
+      val leftval = eval(leftexp, env)
+      val rightval = eval(rightexp, env)
       op match {
         case PlusBinOp() =>
           (leftval, rightval) match {
@@ -134,7 +131,7 @@ object Interpreter {
           }
       }
     case UnOpExp(op, exp) =>
-      val expval = eval(exp, venv, fenv)
+      val expval = eval(exp, env)
       op match {
         case NegUnOp() =>
           expval match {
@@ -144,64 +141,70 @@ object Interpreter {
           }
         case NotUnOp() =>
           expval match {
-            case (BoolVal(v)) => BoolVal(!v)
+            case BoolVal(v) => BoolVal(!v)
             case _ => throw new InterpreterError(s"Type mismatch at '!', unexpected value ${valueToString(expval)}", op)
           }
       }
     case IfThenElseExp(condexp, thenexp, elseexp) =>
-      val cexp = eval(condexp, venv, fenv)
+      val cexp = eval(condexp, env)
       cexp match {
-        case (BoolVal(v)) => if (v) eval(thenexp, venv, fenv) else eval(elseexp, venv, fenv)
+        case BoolVal(v) => if (v) eval(thenexp, env) else eval(elseexp, env)
         case _ => throw new InterpreterError(s"Type mismatch at 'ifThenElse', unexpected value ${valueToString(cexp)}", condexp)
       }
     case BlockExp(vals, defs, exp) =>
-      var venv1 = venv
+      var env1 = env
       for (d <- vals) {
-        val v = eval(d.exp, venv1, fenv)
-        venv1 = venv1 + (d.x -> v)
+        val v = eval(d.exp, env1)
+        checkValueType(v, d.opttype, e)
+        env1 += (d.x -> v)
       }
-      var fenv1 = fenv
       for (d <- defs) {
-        fenv1 = fenv1 + (d.fun -> Closure(d.params, d.optrestype, d.body, venv1, fenv1, defs))
+        env1 += (d.fun -> ClosureVal(d.params, d.optrestype, d.body, env1, defs))
       }
-      eval(exp, venv1, fenv1)
+      eval(exp, env1)
     case TupleExp(exps) =>
       var vals = List[Val]()
       for (exp <- exps)
-        vals = eval(exp, venv, fenv) :: vals
+        vals = eval(exp, env) :: vals
       TupleVal(vals.reverse)
     case MatchExp(exp, cases) =>
-      val expval = eval(exp, venv, fenv)
+      val expval = eval(exp, env)
       expval match {
         case TupleVal(vs) =>
           for (c <- cases) {
             if (vs.length == c.pattern.length) {
-              var venv1 = venv
+              var env1 = env
               for (i <- vs.indices) {
-                venv1 = venv1 + (c.pattern(i) -> vs(i))
+                env1 = env1 + (c.pattern(i) -> vs(i))
               }
-              return eval(c.exp, venv1, fenv)
+              return eval(c.exp, env1)
             }
           }
           throw new InterpreterError(s"No case matches value ${valueToString(expval)}", e)
         case _ => throw new InterpreterError(s"Tuple expected at match, found ${valueToString(expval)}", e)
       }
-    case CallExp(fun, args) =>
-      val func = fenv.getOrElse(fun, throw new InterpreterError(s"Unknown function '$fun'", e))
-      var venv1 = func.venv
-      if (args.length != func.params.length)
-        throw new InterpreterError(s"Unexpected amount fo parameters for function '$fun'", e)
-      for (i <- args.indices) {
-        val arg = eval(args(i), venv, fenv)
-        checkValueType(arg, func.params(i).opttype, func.params(i))
-        venv1 = venv1 + (func.params(i).x -> arg)
+    case CallExp(funexp, args) =>
+      val closureVal = eval(funexp, env)
+      closureVal match {
+        case ClosureVal(params, optrestype, body, env1, defs) =>
+          if (args.length != params.length)
+            throw new InterpreterError(s"Unexpected amount of parameters for function '$funexp'", e)
+          var env2 = env1
+          for (i <- args.indices) {
+            val arg = eval(args(i), env)
+            checkValueType(arg, params(i).opttype, params(i))
+            env2 += (params(i).x -> arg)
+          }
+          for (f <- defs) {
+            env2 += (f.fun -> ClosureVal(f.params, f.optrestype, f.body, env, defs))
+          }
+          val res = eval(body, env2)
+          checkValueType(res, optrestype, e)
+          res
+        case _ => throw new InterpreterError(s"Unknown function '$funexp'", e)
       }
-      var fenv1 = func.fenv + (fun -> func)
-      for (f <- func.defs) {
-        fenv1 = fenv1 + (f.fun -> Closure(f.params, f.optrestype, f.body, func.venv, func.fenv, func.defs))
-      }
-
-      eval(func.body, venv1, func.fenv + (fun -> func) ++ fenv1)
+    case LambdaExp(params, body) =>
+      ClosureVal(params, None, body, env, List())
   }
 
   /**
@@ -218,9 +221,23 @@ object Interpreter {
         case (TupleVal(vs), TupleType(ts)) if vs.length == ts.length =>
           for ((vi, ti) <- vs.zip(ts))
             checkValueType(vi, Some(ti), n)
+        case (ClosureVal(cparams, optcrestype, _, _, _), FunType(paramtypes, restype)) if cparams.length == paramtypes.length =>
+          for ((p, t) <- cparams.zip(paramtypes))
+            checkTypesEqual(t, p.opttype, n)
+          checkTypesEqual(restype, optcrestype, n)
         case _ =>
           throw new InterpreterError(s"Type mismatch: value ${valueToString(v)} does not match type ${unparse(t)}", n)
       }
+    case None => // do nothing
+  }
+
+  /**
+    * Checks that the types `t1` and `ot2` are equal (if present), throws type error exception otherwise.
+    */
+  def checkTypesEqual(t1: Type, ot2: Option[Type], n: AstNode): Unit = ot2 match {
+    case Some(t2) =>
+      if (t1 != t2)
+        throw new InterpreterError(s"Type mismatch: type ${unparse(t1)} does not match expected type ${unparse(t2)}", n)
     case None => // do nothing
   }
 
@@ -233,18 +250,20 @@ object Interpreter {
     case BoolVal(c) => c.toString
     case StringVal(c) => c
     case TupleVal(vs) => vs.map(valueToString).mkString("(", ",", ")")
+    case ClosureVal(params, _, exp, _, _) => // the resulting string ignores the result type annotation and the declaration environment
+      s"<(${params.map(unparse).mkString(",")}), ${unparse(exp)}>"
   }
 
   /**
     * Builds an initial environment, with a value for each free variable in the program.
     */
-  def makeInitialVarEnv(program: Exp): VarEnv = {
-    var venv = Map[Var, Val]()
+  def makeInitialEnv(program: Exp): Env = {
+    var env = Map[Id, Val]()
     for (x <- Vars.freeVars(program)) {
       print(s"Please provide an integer value for the variable $x: ")
-      venv = venv + (x -> IntVal(StdIn.readInt()))
+      env = env + (x -> IntVal(StdIn.readInt()))
     }
-    venv
+    env
   }
 
   /**

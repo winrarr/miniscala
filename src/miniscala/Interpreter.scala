@@ -152,21 +152,22 @@ object Interpreter {
         case _ => throw new InterpreterError(s"Type mismatch at 'ifThenElse', unexpected value ${valueToString(cexp)}", condexp)
       }
     case BlockExp(vals, defs, exp) =>
-      var env1 = env
-      for (d <- vals) {
-        val v = eval(d.exp, env1)
-        checkValueType(v, d.opttype, e)
-        env1 += (d.x -> v)
-      }
-      for (d <- defs) {
-        env1 += (d.fun -> ClosureVal(d.params, d.optrestype, d.body, env1, defs))
-      }
-      eval(exp, env1)
+      val env1 = vals.foldRight(env)((d: ValDecl, ds: Env) => ds + (d.x -> checkValueType(eval(d.exp, env), d.opttype, e)))
+//      var env1 = env
+//      for (d <- vals) {
+//        val v = eval(d.exp, env1)
+//        checkValueType(v, d.opttype, e)
+//        env1 += (d.x -> v)
+//      }
+      eval(exp, defs.foldRight(env1)((d: DefDecl, ds: Env) => ds + (d.fun -> ClosureVal(d.params, d.optrestype, d.body, env1, defs))))
+//      for (d <- defs) {
+//        env1 += (d.fun -> ClosureVal(d.params, d.optrestype, d.body, env1, defs))
+//      }
     case TupleExp(exps) =>
-      var vals = List[Val]()
-      for (exp <- exps)
-        vals = eval(exp, env) :: vals
-      TupleVal(vals.reverse)
+//      var vals = List[Val]()
+//      for (exp <- exps)
+//        vals = eval(exp, env) :: vals
+      TupleVal(exps.foldRight(List[Val]())((e: Exp, ex: List[Val]) => eval(e, env) :: ex).reverse)
     case MatchExp(exp, cases) =>
       val expval = eval(exp, env)
       expval match {
@@ -196,7 +197,7 @@ object Interpreter {
             env2 += (params(i).x -> arg)
           }
           for (f <- defs) {
-            env2 += (f.fun -> ClosureVal(f.params, f.optrestype, f.body, env, defs))
+            env2 += (f.fun -> ClosureVal(f.params, f.optrestype, f.body, env1, defs))
           }
           val res = eval(body, env2)
           checkValueType(res, optrestype, e)
@@ -210,25 +211,27 @@ object Interpreter {
   /**
     * Checks whether value `v` has type `ot` (if present), generates runtime type error otherwise.
     */
-  def checkValueType(v: Val, ot: Option[Type], n: AstNode): Unit = ot match {
+  def checkValueType(v: Val, ot: Option[Type], n: AstNode): Val = ot match {
     case Some(t) =>
       (v, t) match {
         case (IntVal(_), IntType()) |
              (BoolVal(_), BoolType()) |
              (FloatVal(_), FloatType()) |
              (IntVal(_), FloatType()) |
-             (StringVal(_), StringType()) => // do nothing
+             (StringVal(_), StringType()) => v
         case (TupleVal(vs), TupleType(ts)) if vs.length == ts.length =>
           for ((vi, ti) <- vs.zip(ts))
             checkValueType(vi, Some(ti), n)
+          v
         case (ClosureVal(cparams, optcrestype, _, _, _), FunType(paramtypes, restype)) if cparams.length == paramtypes.length =>
           for ((p, t) <- cparams.zip(paramtypes))
             checkTypesEqual(t, p.opttype, n)
           checkTypesEqual(restype, optcrestype, n)
+          v
         case _ =>
           throw new InterpreterError(s"Type mismatch: value ${valueToString(v)} does not match type ${unparse(t)}", n)
       }
-    case None => // do nothing
+    case None => v
   }
 
   /**

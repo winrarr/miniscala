@@ -1,5 +1,4 @@
 package miniscala
-
 import miniscala.Ast._
 
 /**
@@ -7,6 +6,7 @@ import miniscala.Ast._
   */
 object Vars {
 
+  type Set[A] = Set.Set[A]
   def freeVars(e: Exp): Set[Id] = e match {
     case _: Literal => Set()
     case VarExp(x) => Set(x)
@@ -23,6 +23,7 @@ object Vars {
         fv = fv -- declaredVars(d) ++ freeVars(d)
       fv
     case TupleExp(exps) =>
+
       var fv = Set[Id]()
       for (exp <- exps)
         fv = fv ++ freeVars(exp)
@@ -32,8 +33,11 @@ object Vars {
       for (c <- cases)
         fv = fv ++ (freeVars(c.exp) -- c.pattern)
       fv
-    case CallExp(funexp, args) =>
-      ???
+    case CallExp(_, args) =>
+      var fv = Set[Id]()
+      for (exp <- args)
+        fv = fv ++ freeVars(exp)
+      fv
     case LambdaExp(params, body) => freeVars(body) -- params.map(p => p.x)
   }
 

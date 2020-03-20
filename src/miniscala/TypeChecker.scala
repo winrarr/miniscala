@@ -129,8 +129,8 @@ object TypeChecker {
         case _ => throw new TypeError(s"Unknown function '$funexp'", e)
       }
     case LambdaExp(params, body) =>
-      val paramTypes = params.map(p => p.x -> p.opttype.getOrElse(throw new TypeError(s"Type annotation missing at parameter ${p.x}", p))).toMap
-      FunType(paramTypes.values.toList, typeCheck(body, tenv ++ paramTypes))
+      val paramTypes = params.map(p => p.x -> p.opttype.getOrElse(throw new TypeError(s"Type annotation missing at parameter ${p.x}", p)))
+      FunType(paramTypes.map(p => p._2), typeCheck(body, tenv ++ paramTypes))
   }
 
   /**

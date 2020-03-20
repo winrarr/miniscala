@@ -30,10 +30,18 @@ object Unparser {
       op match {
         case NegUnOp() => "- " + expval
       }
-    case BlockExp(vals, exp) =>
+    case BlockExp(vals, defs, exp) =>
       var valsString: String = "{ "
       for (v <- vals) {
         valsString += s"val ${v.x} = ${unparse(v.exp)}; "
+      }
+      for (d <- defs) {
+        valsString += s"def ${d.fun}("
+        for (p <- d.params) {
+          valsString += s"${p.x}: ${p.opttype.getOrElse("")}, "
+        }
+        valsString = valsString.substring(0, valsString.length - 2) +
+          s"): ${d.optrestype.getOrElse("")} = { ${d.body} };"
       }
       valsString + unparse(exp) + " }"
     case VarExp(x) => x.toString

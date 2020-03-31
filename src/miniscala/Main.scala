@@ -29,18 +29,8 @@ object Main {
       // execute the program, if enabled
       if (Options.run) {
         val initialEnv = Interpreter.makeInitialEnv(program)
-        val result = Interpreter.eval(program, initialEnv)
+        val (result, _) = Interpreter.eval(program, initialEnv, Map())
         println(s"Output: ${Interpreter.valueToString(result)}")
-      }
-
-      // translate to lambda calculus, unparse, run, and decode result as a number, if enabled
-      if (Options.lambda) {
-        val encoded = Lambda.encode(program)
-        println(s"Encoded program: ${Unparser.unparse(encoded)}")
-        val initialEnv = Lambda.makeInitialEnv(program)
-        val result = Interpreter.eval(encoded, initialEnv)
-        println(s"Output from encoded program: ${Interpreter.valueToString(result)}")
-        println(s"Decoded output: ${Lambda.decodeNumber(result)}")
       }
 
     } catch { // report all errors to the console

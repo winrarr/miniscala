@@ -30,7 +30,7 @@ object Ast {
 
   case class IfThenElseExp(condexp: Exp, thenexp: Exp, elseexp: Exp) extends Exp
 
-  case class BlockExp(vals: List[ValDecl], defs: List[DefDecl], exp: Exp) extends Exp
+  case class BlockExp(vals: List[ValDecl], vars: List[VarDecl], defs: List[DefDecl], exps: List[Exp]) extends Exp
 
   case class TupleExp(exps: List[Exp]) extends Exp
 
@@ -39,6 +39,10 @@ object Ast {
   case class CallExp(funexp: Exp, args: List[Exp]) extends Exp
 
   case class LambdaExp(params: List[FunParam], body: Exp) extends Exp
+
+  case class AssignmentExp(x: Id, exp: Exp) extends Exp
+
+  case class WhileExp(cond: Exp, body: Exp) extends Exp
 
   /**
     * Literals.
@@ -96,6 +100,8 @@ object Ast {
 
   case class ValDecl(x: Id, opttype: Option[Type], exp: Exp) extends Decl
 
+  case class VarDecl(x: Id, opttype: Option[Type], exp: Exp) extends Decl
+
   case class DefDecl(fun: Id, params: List[FunParam], optrestype: Option[Type], body: Exp) extends Decl
 
   /**
@@ -111,7 +117,7 @@ object Ast {
   /**
     * Types.
     */
-  sealed abstract class Type extends AstNode
+  abstract class Type extends AstNode
 
   case class IntType() extends Type
 

@@ -24,6 +24,8 @@ object Parser extends PackratParsers {
     antiPrecedence match {
       case 8 =>
         ifthenelse |
+          wwhile |
+          assignment |
           lambda |
           expr(7)
       case 7 =>
@@ -70,11 +72,17 @@ object Parser extends PackratParsers {
     }
   }
 
-  private lazy val blockel: PackratParser[AstNode] = valdecl | defdecl
+  private lazy val wwhile: PackratParser[Exp] = positioned {
+    (WWHILE() ~ LEFT_PAREN() ~ expr() ~ RIGHT_PAREN() ~ expr()) ^^ {
+      case _ ~ _ ~ exp1 ~ _ ~ exp2 => WhileExp(exp1, exp2)
+    }
+  }
 
-  private lazy val blockelmseq: PackratParser[List[AstNode]] = rep { blockel ~ SEMICOLON() } ^^ (_.map(_._1))
+  private lazy val blockel: PackratParser[AstNode] = valdecl | vardecl | defdecl | expr()
 
-  type BlockTupleType = Tuple2[List[ValDecl], List[DefDecl]]
+  private lazy val blockelmseq: PackratParser[List[AstNode]] = repsep(blockel, SEMICOLON())
+
+  type BlockTupleType = Tuple4[List[ValDecl], List[VarDecl], List[DefDecl], List[Exp]]
 
   private def validBlock[T](l: List[T]): Option[BlockTupleType] = {
     // Matchers for each part of the block
@@ -82,7 +90,13 @@ object Parser extends PackratParsers {
       { case _: ValDecl => true
       case _ => false
       },
+      { case _: VarDecl => true
+      case _ => false
+      },
       { case _: DefDecl => true
+      case _ => false
+      },
+      { case _: Exp => true
       case _ => false
       })
     // Extractor of the various parts of the block
@@ -93,13 +107,21 @@ object Parser extends PackratParsers {
     val items = splits.reverse
     if (remaining.isEmpty) Some((
       items(0).map(_.asInstanceOf[ValDecl]),
-      items(1).map(_.asInstanceOf[DefDecl]))
+      items(1).map(_.asInstanceOf[VarDecl]),
+      items(2).map(_.asInstanceOf[DefDecl]),
+      items(3).map(_.asInstanceOf[Exp]))
     )
     else None
   }
 
   private lazy val block: PackratParser[BlockExp] = positioned {
-    ((LEFT_BRACE() ~ blockelmseq ~ expr() ~ RIGHT_BRACE()) ^^ {case _ ~ l ~ exp ~ _ => validBlock(l).map(t => BlockExp(t._1, t._2, exp)) } filter(_.isDefined)) ^^ {_.get}
+    ((LEFT_BRACE() ~ blockelmseq ~ RIGHT_BRACE()) ^^ {case _ ~ l ~ _ => validBlock(l).map(BlockExp.tupled) } filter(_.isDefined)) ^^ {_.get}
+  }
+
+  private lazy val assignment: PackratParser[Exp] = positioned {
+    (identifier ~ EQ() ~ expr()) ^^ {
+      case id ~ _ ~ exp => AssignmentExp(id.str, exp)
+    }
   }
 
   private def call(context: Context.Value): PackratParser[Exp] =
@@ -129,6 +151,13 @@ object Parser extends PackratParsers {
 
   private lazy val valdecl: PackratParser[Decl] = positioned {
     (VVAL() ~ identifier ~ opttypeannotation ~ EQ() ~ expr()) ^^ { case _ ~ id ~ t ~ _ ~ exp => ValDecl(id.str, t, exp) }
+  }
+
+  private lazy val vardecl: PackratParser[Decl] = positioned {
+    (VVAR() ~ identifier ~ opttypeannotation ~ EQ() ~ expr()) ^^ {
+      case _ ~ id ~ t ~ _ ~ exp =>
+        VarDecl(id.str, t, exp)
+    }
   }
 
   private lazy val defdecl: PackratParser[Decl] = positioned {

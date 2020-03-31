@@ -6,7 +6,6 @@ import miniscala.Ast._
   */
 object Vars {
 
-  type Set[A] = Set.Set[A]
   def freeVars(e: Exp): Set[Id] = e match {
     case _: Literal => Set()
     case VarExp(x) => Set(x)

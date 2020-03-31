@@ -9,6 +9,7 @@ object Unparser {
 
   def unparse(n: AstNode): String = n match {
     case IntLit(c) => c.toString
+    case BoolLit(c) => c.toString
     case BinOpExp(leftexp, op, rightexp) =>
       val leftval = unparse(leftexp)
       val rightval = unparse(rightexp)
@@ -29,6 +30,7 @@ object Unparser {
       val expval = unparse(exp)
       op match {
         case NegUnOp() => "- " + expval
+        case NotUnOp() => "!" + expval
       }
     case BlockExp(vals, defs, exp) =>
       var valsString: String = "{ "
@@ -68,5 +70,27 @@ object Unparser {
     case FloatType() => "Float"
     case StringType() => "String"
     case TupleType(types) => types.length + "-Tuple"
+    case CallExp(exp, args) =>
+      var res: String = unparse(exp) + "("
+      for (a <- args) {
+        res = res + unparse(a)
+      }
+      res + ")"
+    case LambdaExp(params, body) =>
+      var res: String = ""
+      for (p <- params) {
+        if (p.opttype.isEmpty) {
+          res = res + s"(${p.x}) => "
+        } else {
+          res = res + s"(${p.x}: ${p.opttype}) => "
+        }
+      }
+      res + unparse(body)
+    case FunParam(x, opttype) =>
+      if (opttype.isEmpty) {
+        x
+      } else {
+        x + ": " + opttype
+      }
   }
 }

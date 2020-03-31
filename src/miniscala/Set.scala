@@ -1,6 +1,6 @@
 package miniscala
 
-object Set {
+object Seta {
   sealed abstract class List[A] {
     def foreach[U](f: A => U): Unit
 

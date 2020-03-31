@@ -152,22 +152,24 @@ object Interpreter {
         case _ => throw new InterpreterError(s"Type mismatch at 'ifThenElse', unexpected value ${valueToString(cexp)}", condexp)
       }
     case BlockExp(vals, defs, exp) =>
-      val env1 = vals.foldRight(env)((d: ValDecl, ds: Env) => ds + (d.x -> checkValueType(eval(d.exp, env), d.opttype, e)))
-//      var env1 = env
-//      for (d <- vals) {
-//        val v = eval(d.exp, env1)
-//        checkValueType(v, d.opttype, e)
-//        env1 += (d.x -> v)
-//      }
-      eval(exp, defs.foldRight(env1)((d: DefDecl, ds: Env) => ds + (d.fun -> ClosureVal(d.params, d.optrestype, d.body, env1, defs))))
-//      for (d <- defs) {
-//        env1 += (d.fun -> ClosureVal(d.params, d.optrestype, d.body, env1, defs))
-//      }
+//      val env1 = vals.foldRight(env)((d: ValDecl, ds: Env) => ds + (d.x -> checkValueType(eval(d.exp, env), d.opttype, e)))
+      var env1 = env
+      for (d <- vals) {
+        val v = eval(d.exp, env1)
+        checkValueType(v, d.opttype, e)
+        env1 += (d.x -> v)
+      }
+//      eval(exp, defs.foldRight(env1)((d: DefDecl, ds: Env) => ds + (d.fun -> ClosureVal(d.params, d.optrestype, d.body, env1, defs))))
+      for (d <- defs) {
+        env1 += (d.fun -> ClosureVal(d.params, d.optrestype, d.body, env1, defs))
+      }
+      eval(exp, env1)
     case TupleExp(exps) =>
-//      var vals = List[Val]()
-//      for (exp <- exps)
-//        vals = eval(exp, env) :: vals
-      TupleVal(exps.foldRight(List[Val]())((e: Exp, ex: List[Val]) => eval(e, env) :: ex).reverse)
+      var vals = List[Val]()
+      for (exp <- exps)
+        vals = eval(exp, env) :: vals
+      TupleVal(vals.reverse)
+//      TupleVal(exps.foldRight(List[Val]())((e: Exp, ex: List[Val]) => eval(e, env) :: ex).reverse)
     case MatchExp(exp, cases) =>
       val expval = eval(exp, env)
       expval match {

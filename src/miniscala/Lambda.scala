@@ -17,14 +17,21 @@ object Lambda {
     e match {
       case IntLit(c) =>
         if (c == 0) LambdaExp(List(FunParam("s",None)), LambdaExp(List(FunParam("z", None)), VarExp("z")))
-        else LambdaExp(List(FunParam("s",None)), LambdaExp(List(FunParam("z", None)), CallExp(encode(VarExp("s")), List(VarExp("z")))))
+        else {
+          LambdaExp(List(FunParam("s",None)), LambdaExp(List(FunParam("z", None)), CallExp(VarExp("s"), List(CallExp(CallExp(encode(IntLit(c - 1)), List(VarExp("s"))), List(VarExp("z")))))))
+          var res: Exp = CallExp(VarExp("s"), List(VarExp("z")))
+          for (_ <- 0 until c - 1) {
+            res = CallExp(VarExp("s"), List(res))
+          }
+          LambdaExp(List(FunParam("s",None)), LambdaExp(List(FunParam("z", None)), res))
+        }
       case BoolLit(c) => // boolean literals are encoded as on slide 15
         if (c) LambdaExp(List(FunParam("t",None)), LambdaExp(List(FunParam("e", None)), VarExp("t")))
         else LambdaExp(List(FunParam("t", None)), LambdaExp(List(FunParam("e", None)), VarExp("e")))
       case VarExp(id) => // variables need no encoding
         e
       case BinOpExp(leftexp, EqualBinOp(), IntLit(0)) => // e == 0, slide 18
-        ???
+        CallExp(encode(leftexp), List(CallExp(LambdaExp(List(FunParam("n", None)), encode(BoolLit(false))), List(encode(BoolLit(true))))))
       case BinOpExp(leftexp, MinusBinOp(), IntLit(1)) => // e - 1, slide 20
         LambdaExp(List(FunParam("s", None)), LambdaExp(List(FunParam("z", None)),
           CallExp(CallExp(CallExp(encode(leftexp), List(
@@ -64,7 +71,9 @@ object Lambda {
       case UnOpExp(op, subexp) =>
         op match {
           case NotUnOp() => // !e, slide 15
-            ???
+            LambdaExp(List(FunParam("a", None)), LambdaExp(List(FunParam("b", None)), CallExp(encode(subexp), List(CallExp(VarExp("b"), List(VarExp("a")))))))
+//            CallExp(encode(subexp), List(CallExp(encode(BoolLit(false)), List(encode(BoolLit(true)))))) // wrong
+//            encode(IfThenElseExp(subexp, BoolLit(false), BoolLit(true)))
           case _ => // remaining cases are not (yet) implemented
             throw new EncoderError(e)
         }
@@ -74,11 +83,13 @@ object Lambda {
           List(LambdaExp(List(FunParam("a", None)), CallExp(encode(thenexp), List(VarExp("a")))))),
           List(LambdaExp(List(FunParam("b", None)), CallExp(encode(elseexp), List(VarExp("b")))))) // mimics call-by-name
       case BlockExp(List(ValDecl(id, _, e1)), List(), e2: Exp) => // { val x = e1; e2 }, slide 23
-        ???
+        CallExp(LambdaExp(List(FunParam(id, None)), encode(e2)), List(encode(e1)))
       case BlockExp(List(), List(DefDecl(f, List(FunParam(x, _)), _, e1)), e2: Exp) => // { def f(x) = e1; e2 }, slide 23
         CallExp(LambdaExp(List(FunParam(f, None)), encode(e2)),
           List(CallExp(FIX,
             List(LambdaExp(List(FunParam(f, None)), LambdaExp(List(FunParam(x, None)), encode(e1)))))))
+      case BlockExp(List(), List(), exp) =>
+        encode(exp)
       case TupleExp(List(e1, e2)) => // (e1, e2), slide 21
         LambdaExp(List(FunParam("p", None)),
           CallExp(CallExp(VarExp("p"), List(encode(e1))), List(encode(e2))))
@@ -97,7 +108,7 @@ object Lambda {
     }
 
   def decodeNumber(v: Val): Int = v match {
-    case ClosureVal(params, _, exp, env) =>
+    case ClosureVal(params, _, exp, env, _) =>
       val unchurch = // see slide 22
         CallExp(CallExp(LambdaExp(params, exp),
           List(LambdaExp(List(FunParam("n", None)), BinOpExp(VarExp("n"), PlusBinOp(), IntLit(1))))),
@@ -110,9 +121,9 @@ object Lambda {
   }
 
   def decodeBoolean(v: Val): Boolean = v match {
-    case ClosureVal(params, _, exp, env) =>
+    case ClosureVal(params, _, exp, env, _) =>
       val unchurch = // see slide 22
-        ???
+        CallExp(CallExp(LambdaExp(params, exp), List(BoolLit(true))), List(BoolLit(false)))
       Interpreter.eval(unchurch, env) match {
         case BoolVal(c) => c
         case _ => throw new RuntimeException(s"Unexpected decoded value $v")

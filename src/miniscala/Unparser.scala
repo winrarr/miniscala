@@ -32,20 +32,26 @@ object Unparser {
         case NegUnOp() => "- " + expval
         case NotUnOp() => "!" + expval
       }
-    case BlockExp(vals, defs, exp) =>
-      var valsString: String = "{ "
+    case BlockExp(vals, vars, defs, exps) =>
+      var str: String = "{ "
       for (v <- vals) {
-        valsString += s"val ${v.x} = ${unparse(v.exp)}; "
+        str += s"val ${v.x} = ${unparse(v.exp)};\n"
+      }
+      for (v <- vars) {
+        str += s"var ${v.x} = ${unparse(v.exp)};\n"
       }
       for (d <- defs) {
-        valsString += s"def ${d.fun}("
+        str += s"def ${d.fun}("
         for (p <- d.params) {
-          valsString += s"${p.x}: ${p.opttype.getOrElse("")}, "
+          str += s"${p.x}: ${p.opttype.getOrElse("")}, "
         }
-        valsString = valsString.substring(0, valsString.length - 2) +
-          s"): ${d.optrestype.getOrElse("")} = { ${d.body} };"
+        str = str.substring(0, str.length - 2) +
+          s"): ${d.optrestype.getOrElse("")} = { ${d.body} };\n"
       }
-      valsString + unparse(exp) + " }"
+      for (e <- exps) {
+        str += s"${unparse(e)};\n"
+      }
+      str + " }"
     case VarExp(x) => x.toString
     case IfThenElseExp(condexp, thenexp, elseexp) =>
       s"if (${unparse(condexp)}) ${unparse(thenexp)} else ${unparse(elseexp)}"

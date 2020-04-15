@@ -8,18 +8,26 @@ import miniscala.parser.Parser.parse
 object Test49 {
 
   def main(args: Array[String]): Unit = {
+    test("{ var a = 5; a = 3; a }", IntVal(3), IntType())
     test("{ def f(x: Int): Int = x; f(2) }", IntVal(2), IntType())
     testFail("{ def f(x: Int): Int = x; f(2, 3) }")
-    testFail("{ def f(x: Int): Int = x; f(True) }")
-    test("{ def isEven(n: Int): Boolean = if (n == 0) true else isOdd(n - 1); def isOdd(n: Int): Boolean = if (n == 0) false else isEven(n - 1); isEven(17) }", BoolVal(false), BoolType())
-    test("{ val x = 9; val zero = 0; def sqrtIter(y: Float, i: Int): Float = if (i == zero) y else sqrtIter(improve(y), i - 1); def improve(y: Float): Float = (y + x / y) / 2; sqrtIter(1.0f, 4) }", FloatVal(3.0000916f), FloatType())
-    test("{ def fib(n: Int): Int = if (n <= 1) n else fib(n - 1) + fib(n - 2); fib(8) }", IntVal(21), IntType())
-    test("{ val inc = (x: Int) => x + 1; inc(42) }", IntVal(43), IntType())
-    test("{ val x = (f: Int => Int) => (x: Int) => f(f(x)); def g(a: Int): Int = a + 1; x(g)(2) }", IntVal(4), IntType())
-    test("{ val x = (f: Int => Boolean) => (x: Int) => f(x); def g(a: Int): Boolean = if (a < 10) true else false; x(g)(2) }", BoolVal(true), BoolType())
-    testFail("{ val x = (f: Int => Boolean) => (x: Boolean) => f(x); def g(a: Int): Boolean = if (a < 10) true else false; x(g)(2) }")
-    testFail("{ val x = (f: Int => Boolean) => (x: Int) => f(x); def g(a: Int): Int = if (a < 10) true else false; x(g)(2) }")
-    testFail("{ val x = (f: Int => Boolean) => (x: Int) => f(x); def g(a: Int): Boolean = if (a < 10) 1 else 2; x(g)(2) }")
+    testVal("{ var z: Int = 0; { var t: Int = x; while (y <= t) { z = z + 1; t = t - y }; z } }", IntVal(3), Map("x" -> IntVal(17), "y" -> IntVal(5)))
+    testFail("{ var z: Int = 0; { var t: Int = x; while (y <= t) { z = z + 1; t = t - y }; z } }")
+    testFail("{ val x = 1; x = 2; x }")
+    test("{ }", TupleVal(List()), TupleType(List()))
+    testType("{ var z: Int = 0; { var t: Int = x; while (y <= t) { z = z + 1; t = t - y }; z } }", IntType(), Map("x" -> IntType(), "y" -> IntType()))
+    testVal("{ var x: Int = 0; def inc(): Int = { x = x + 1; x }; inc(); inc() }", IntVal(2))
+    testType("{ var x: Int = 0; def inc(): Int = { x = x + 1; x }; inc(); inc() }", IntType())
+    testVal("""{ def make(a: Int): Int => Int = {
+              |    var c: Int = a;
+              |    def add(b: Int): Int = { c = c + b; c };
+              |    add
+              |  };
+              |  { val c1 = make(100);
+              |    val c2 = make(1000);
+              |    c1(1) + c1(2) + c2(3) } }""".stripMargin, IntVal(101 + 103 + 1003))
+
+    // <-- add more test cases here
   }
 
   def test(prg: String, rval: Val, rtype: Type) = {
@@ -32,21 +40,18 @@ object Test49 {
     testTypeFail(prg)
   }
 
-  def testVal(prg: String, value: Val, env: Env = Map[Id, Val]()) = {
-    val hej = parse(prg)
-    val hej2 = eval(hej, env)
-    assert(eval(parse(prg), env) == value)
+  def testVal(prg: String, value: Val, env: Env = Map(), sto: Sto = Map()) = {
+    val (res, _) = eval(parse(prg), env, sto)
+    assert(res == value)
   }
 
   def testType(prg: String, out: Type, tenv: TypeEnv = Map[Id, Type]()) = {
-    val hej = parse(prg)
-    val hej2 = typeCheck(hej, tenv)
     assert(typeCheck(parse(prg), tenv) == out)
   }
 
-  def testValFail(prg: String) = {
+  def testValFail(prg: String,env: Env = Map[Id, Val](), sto: Sto = Map[Loc, Val]() ) = {
     try {
-      eval(parse(prg), Map[Id, Val]())
+      eval(parse(prg), env, sto)
       assert(false)
     } catch {
       case _: InterpreterError => assert(true)

@@ -40,9 +40,11 @@ object Parser extends PackratParsers {
           tupleexp |
           expr(-2)
       case -2 =>
+        lookup |
           expr(-3)
       case -3 =>
-        literal |
+        newobj |
+          literal |
           identifier ^^ { id => VarExp(id.str).setPos(id.pos) } |
           block |
           parens
@@ -78,11 +80,11 @@ object Parser extends PackratParsers {
     }
   }
 
-  private lazy val blockel: PackratParser[AstNode] = valdecl | vardecl | defdecl | expr()
+  private lazy val blockel: PackratParser[AstNode] = valdecl | vardecl | defdecl | classdecl | expr()
 
   private lazy val blockelmseq: PackratParser[List[AstNode]] = repsep(blockel, SEMICOLON())
 
-  type BlockTupleType = Tuple4[List[ValDecl], List[VarDecl], List[DefDecl], List[Exp]]
+  type BlockTupleType = Tuple5[List[ValDecl], List[VarDecl], List[DefDecl], List[ClassDecl], List[Exp]]
 
   private def validBlock[T](l: List[T]): Option[BlockTupleType] = {
     // Matchers for each part of the block
@@ -94,6 +96,9 @@ object Parser extends PackratParsers {
       case _ => false
       },
       { case _: DefDecl => true
+      case _ => false
+      },
+      { case _: ClassDecl => true
       case _ => false
       },
       { case _: Exp => true
@@ -109,7 +114,8 @@ object Parser extends PackratParsers {
       items(0).map(_.asInstanceOf[ValDecl]),
       items(1).map(_.asInstanceOf[VarDecl]),
       items(2).map(_.asInstanceOf[DefDecl]),
-      items(3).map(_.asInstanceOf[Exp]))
+      items(3).map(_.asInstanceOf[ClassDecl]),
+      items(4).map(_.asInstanceOf[Exp]))
     )
     else None
   }
@@ -149,6 +155,20 @@ object Parser extends PackratParsers {
     }
   }.setPos(callExp.pos)
 
+  private lazy val lookup: PackratParser[Exp] = positioned {
+    (call(Context.Lookup) | expr(-3)) ~ DOT() ~ rep1sep(call(Context.Lookup) | identifier, DOT()) ^^ { case e ~ _ ~ ids => ids.foldLeft(e: Exp) { case (acc, curr) =>
+      curr match {
+        case c: CallExp => replaceVarTarget(c, id => LookupExp(acc, id.x))
+        case id: IDENTIFIER => LookupExp(acc, id.str)
+      }
+    }
+    }
+  }
+
+  private lazy val newobj: PackratParser[Exp] = positioned {
+    NEW() ~ identifier ~ appl ^^ { case _ ~ name ~ args => NewObjExp(name.str, args)}
+  }
+
   private lazy val valdecl: PackratParser[Decl] = positioned {
     (VVAL() ~ identifier ~ opttypeannotation ~ EQ() ~ expr()) ^^ { case _ ~ id ~ t ~ _ ~ exp => ValDecl(id.str, t, exp) }
   }
@@ -167,6 +187,12 @@ object Parser extends PackratParsers {
     }
   }
 
+  private lazy val classdecl: PackratParser[Decl] = positioned {
+    CLASS() ~ identifier ~ LEFT_PAREN() ~ repsep(identifier ~ opttypeannotation, COMMA()) ~ RIGHT_PAREN() ~ block ^^ { case _ ~ name ~ _ ~ params ~ _ ~ body =>
+      ClassDecl(name.str, params.map(p => FunParam(p._1.str, p._2).setPos(p._1.pos)), body)
+    }
+  }
+
   private lazy val opttypeannotation: PackratParser[Option[Type]] =
     opt { (COLON() ~ typeannotation) ^^ { case _ ~ ta => ta }  }
 
@@ -179,7 +205,8 @@ object Parser extends PackratParsers {
     strliteral ^^ { lit => StringLit(lit.str) } |
       boolliteral ^^ { lit => BoolLit(lit.b) } |
       intliteral ^^ { lit => IntLit(lit.i) } |
-      floatliteral ^^ { lit => FloatLit(lit.v) }
+      floatliteral ^^ { lit => FloatLit(lit.v) } |
+      nullliteral ^^ { lit => NullLit() }
   }
 
   private lazy val unopexp: PackratParser[Exp] = positioned {
@@ -222,6 +249,7 @@ object Parser extends PackratParsers {
       case "Boolean" => Left(BoolType())
       case "Float" => Left(FloatType())
       case "Unit" => Left(TupleType(Nil))
+      case "Null" => Left(NullType())
     }
     } |
       (LEFT_PAREN() ~ RIGHT_PAREN()) ^^ { case _ ~ _ => Left(TupleType(Nil)) } |
@@ -230,7 +258,8 @@ object Parser extends PackratParsers {
         case Left(TupleType(it)) => Right(TupleType(it))  // if parenthesis was of the kind ((T, T')) we generate a Right
         case Right(x) => Right(x)                         // we ignore any further nesting, i.e. (((T, T'))) == ((T, T'))
         case Left(x) => Left(x)                           // parenthesization of a non-tuple type: ignoring nesting
-      } }
+      } } |
+      identifier ^^ (id => Left(ClassNameType(id.str).setPos(id.pos)))
   }
 
   private def binop(antiPrecedence: Int): PackratParser[BinOp] = positioned {

@@ -7,12 +7,17 @@ import miniscala.Ast._
   */
 object Unparser {
 
-  def unparse(n: AstNode): String = n match {
+  val unitType = TupleType(Nil)
+  val tab = "   "
+
+  def unparse(n: AstNode, spaces: String = ""): String = n match {
+    case VarExp(c) => c
     case IntLit(c) => c.toString
     case BoolLit(c) => c.toString
+    case StringLit(c) => c
     case BinOpExp(leftexp, op, rightexp) =>
-      val leftval = unparse(leftexp)
-      val rightval = unparse(rightexp)
+      val leftval = unparse(leftexp, spaces)
+      val rightval = unparse(rightexp, spaces)
       op match {
         case PlusBinOp() => leftval + " + " + rightval
         case MinusBinOp() => leftval + " - " + rightval
@@ -27,32 +32,52 @@ object Unparser {
         case OrBinOp() => leftval + " || " + rightval
       }
     case UnOpExp(op, exp) =>
-      val expval = unparse(exp)
+      val expval = unparse(exp, spaces)
       op match {
-        case NegUnOp() => "- " + expval
-        case NotUnOp() => "!" + expval
+        case NegUnOp() => spaces + "- " + expval
+        case NotUnOp() => spaces + "!" + expval
       }
-    case BlockExp(vals, vars, defs, exps) =>
-      var str: String = "{ "
+    case BlockExp(vals, vars, defs, classes, exps) =>
+      val spaces1 = spaces + tab
+      var str: String = "{\n"
       for (v <- vals) {
-        str += s"val ${v.x} = ${unparse(v.exp)};\n"
+        str += spaces1 + s"val ${v.x} = ${unparse(v.exp, spaces1)};\n"
       }
       for (v <- vars) {
-        str += s"var ${v.x} = ${unparse(v.exp)};\n"
+        str += spaces1 + s"var ${v.x} = ${unparse(v.exp, spaces1)};\n"
       }
       for (d <- defs) {
-        str += s"def ${d.fun}("
+        str += spaces1 + s"def ${d.fun}("
+        if (d.params.isEmpty) {
+          str += ", "
+        }
         for (p <- d.params) {
-          str += s"${p.x}: ${p.opttype.getOrElse("")}, "
+          str += s", ${p.x}: ${unparse(p.opttype.getOrElse(unitType))}, "
+        }
+        val resTypeStr = unparse(d.optrestype.getOrElse(unitType))
+        if (resTypeStr.equals("")) {
+          str = str.substring(0, str.length - 2) + s") = ${unparse(d.body, spaces1)}\n"
+        } else {
+          str = str.substring(0, str.length - 2) + s"): ${unparse(d.optrestype.getOrElse(unitType))} = ${unparse(d.body, spaces1)}\n"
+        }
+      }
+      for (c <- classes) {
+        str += spaces1 + s"class ${c.klass}("
+        for (p <- c.params) {
+          val paramType = p.opttype.getOrElse(unitType)
+          if (paramType != TupleType(List())) {
+            str += s"${p.x}: ${unparse(paramType)}, "
+          } else {
+            str += s"${p.x}, "
+          }
         }
         str = str.substring(0, str.length - 2) +
-          s"): ${d.optrestype.getOrElse("")} = { ${d.body} };\n"
+          s") = " + unparse(c.body, spaces1) + ";\n\n"
       }
       for (e <- exps) {
-        str += s"${unparse(e)};\n"
+        str += spaces1 + s"${unparse(e, spaces1)} \n"
       }
-      str + " }"
-    case VarExp(x) => x.toString
+      str + spaces + "}"
     case IfThenElseExp(condexp, thenexp, elseexp) =>
       s"if (${unparse(condexp)}) ${unparse(thenexp)} else ${unparse(elseexp)}"
     case TupleExp(exps) =>
@@ -71,17 +96,9 @@ object Unparser {
         res = res.substring(0, res.length - 2) + ") => " + unparse(c.exp) + ";"
       }
       res + " }"
-    case IntType() => "Int"
-    case BoolType() => "Bool"
-    case FloatType() => "Float"
-    case StringType() => "String"
-    case TupleType(types) => types.length + "-Tuple"
-    case CallExp(exp, args) =>
-      var res: String = unparse(exp) + "("
-      for (a <- args) {
-        res = res + unparse(a)
-      }
-      res + ")"
+    case FunType(paramtypes: List[Type], restype: Type) =>
+      s"(${TupleType(paramtypes)}) => ${unparse(restype)}"
+    case CallExp(exp, args) => unparse(exp) + argsAsString(args)
     case LambdaExp(params, body) =>
       var res: String = ""
       for (p <- params) {
@@ -92,11 +109,39 @@ object Unparser {
         }
       }
       res + unparse(body)
+    case NewObjExp(klass, args) => s"new $klass" + argsAsString(args)
+    case LookupExp(objexp, member) => s"${unparse(objexp)}.$member"
     case FunParam(x, opttype) =>
       if (opttype.isEmpty) {
         x
       } else {
         x + ": " + opttype
       }
+    case AssignmentExp(x, exp) =>
+      s"$x = ${unparse(exp)}"
+
+    case IntType() => "Int"
+    case BoolType() => "Boolean"
+    case FloatType() => "Float"
+    case StringType() => "String"
+    case TupleType(types) =>
+      if (types.isEmpty) return ""
+      var res: String = "("
+      for (t <- types) {
+        res += unparse(t) + ", "
+      }
+      res.substring(0, res.length - 2) + ")"
+  }
+
+  def argsAsString(args: List[Exp]): String = {
+    var res = "("
+    for (a <- args) {
+      res += unparse(a) + ", "
+    }
+    if (res.length > 1) {
+      res.substring(0, res.length - 2) + ")"
+    } else {
+      res + ")"
+    }
   }
 }

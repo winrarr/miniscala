@@ -2,65 +2,91 @@ package miniscala
 
 import miniscala.Ast._
 import miniscala.Interpreter._
-import miniscala.TypeChecker.{TypeEnv, TypeError, typeCheck}
+import miniscala.TypeChecker._
 import miniscala.parser.Parser.parse
 
-object Test49 {
+object Test112 {
 
   def main(args: Array[String]): Unit = {
-    test("{ var a = 5; a = 3; a }", IntVal(3), IntType())
-    test("{ def f(x: Int): Int = x; f(2) }", IntVal(2), IntType())
-    testFail("{ def f(x: Int): Int = x; f(2, 3) }")
-    testVal("{ var z: Int = 0; { var t: Int = x; while (y <= t) { z = z + 1; t = t - y }; z } }", IntVal(3), Map("x" -> IntVal(17), "y" -> IntVal(5)))
-    testFail("{ var z: Int = 0; { var t: Int = x; while (y <= t) { z = z + 1; t = t - y }; z } }")
-    testFail("{ val x = 1; x = 2; x }")
-    test("{ }", TupleVal(List()), TupleType(List()))
-    testType("{ var z: Int = 0; { var t: Int = x; while (y <= t) { z = z + 1; t = t - y }; z } }", IntType(), Map("x" -> IntType(), "y" -> IntType()))
-    testVal("{ var x: Int = 0; def inc(): Int = { x = x + 1; x }; inc(); inc() }", IntVal(2))
-    testType("{ var x: Int = 0; def inc(): Int = { x = x + 1; x }; inc(); inc() }", IntType())
-    testVal("""{ def make(a: Int): Int => Int = {
-              |    var c: Int = a;
-              |    def add(b: Int): Int = { c = c + b; c };
-              |    add
-              |  };
-              |  { val c1 = make(100);
-              |    val c2 = make(1000);
-              |    c1(1) + c1(2) + c2(3) } }""".stripMargin, IntVal(101 + 103 + 1003))
+    // interpreter
+    testValFail("""{ var z = null; z.f }""")
+    testVal("""{ class C() { }; { var x: C = null; x = new C() } }""".stripMargin, TupleVal(List[Val]()))
+    testVal("""{ class C() { }; { var x: C = new C(); x = null } }""".stripMargin, TupleVal(List[Val]()))
 
-    // <-- add more test cases here
+    // typechecker
+    testTypeFail("{ class A() {}; new B() }")
+    testTypeFail("{ val X = 42; new X() }")
+    testTypeFail("{ class C(i: Int) { }; new C(1 - \"hello\") }")
+    testTypeFail("{ class C(i: Int) { }; new C(1, 2) }")
+    testTypeFail("42.f")
+    testTypeFail("{ class C() { def f(x: Int): Int = 42 }; { val o = new C(); o.g } }")
+    testTypeFail("{ class C(i) { } } ")
+    testTypeFail("{ class C(i) { 1 - \"hello\" } } ")
+    testTypeFail("{ class A() {}; class B() {}; { val x: A = new B() }}")
+    testTypeFail("""
+                   |    { class C() { val a: Boolean = false };
+                   |      {
+                   |        {
+                   |          var x: C = new C();
+                   |          class C() { val a: Int = 42 };
+                   |          { val y: C = x }
+                   |        }
+                   |      }
+                   |    }""".stripMargin)
+    testTypeFail("""
+                   |    { class C() { val a: Boolean = false };
+                   |      {
+                   |        {
+                   |          var x: C = new C();
+                   |          class C() { val a: Int = 42 };
+                   |          { x = new C() }
+                   |        }
+                   |      }
+                   |    }""".stripMargin)
+
+    testType("""{ class A() { };
+               |  class B() { var x: A = new A() } }""".stripMargin, unitType)
+    testType("""{
+               |  class Counter(init: Int) {
+               |    var c: Int = init;
+               |    def getValue(): Int = c;
+               |    def inc(): Unit = { c = c + 1 }
+               |  };
+               |  {
+               |    val x = new Counter(3);
+               |    x.inc();
+               |    x.inc();
+               |    x.getValue()
+               |  }
+               |}""".stripMargin, IntType())
+    testType("{ class A(x: Int) { val x: Int = x }; { def f(a: A): Int = a.x; f(new A(2)) } }", IntType())
+    testType("{ class A() { }; class B(a: A) { }; new B(new A()) ; {} }", unitType)
   }
 
-  def test(prg: String, rval: Val, rtype: Type) = {
-    testVal(prg, rval)
-    testType(prg, rtype)
-  }
-
-  def testFail(prg: String) = {
-    testValFail(prg)
-    testTypeFail(prg)
-  }
-
-  def testVal(prg: String, value: Val, env: Env = Map(), sto: Sto = Map()) = {
-    val (res, _) = eval(parse(prg), env, sto)
+  def testVal(prg: String, value: Val, env: Env = Map(), cenv: ClassEnv = Map(), sto: Sto = Map()) = {
+    val a = parse(prg)
+    val (res, _) = eval(a, env, cenv, sto)
     assert(res == value)
   }
 
-  def testType(prg: String, out: Type, tenv: TypeEnv = Map[Id, Type]()) = {
-    assert(typeCheck(parse(prg), tenv) == out)
-  }
-
-  def testValFail(prg: String,env: Env = Map[Id, Val](), sto: Sto = Map[Loc, Val]() ) = {
+  def testValFail(prg: String, env: Env = Map(), cenv: ClassEnv = Map(), sto: Sto = Map()) = {
     try {
-      eval(parse(prg), env, sto)
+      eval(parse(prg), env, cenv, sto)
       assert(false)
     } catch {
       case _: InterpreterError => assert(true)
     }
   }
 
+  def testType(prg: String, out: Type, tenv: TypeEnv = Map(), ctenv: ClassTypeEnv = Map()) = {
+    val a = parse(prg)
+    assert(typeCheck(a, tenv, ctenv) == out)
+  }
+
   def testTypeFail(prg: String) = {
     try {
-      typeCheck(parse(prg), Map[Id, Type]())
+      val a = parse(prg)
+      typeCheck(a, Map(), Map())
       assert(false)
     } catch {
       case _: TypeError => assert(true)

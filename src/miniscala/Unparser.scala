@@ -1,6 +1,8 @@
 package miniscala
 
 import miniscala.Ast._
+import miniscala.Interpreter.DynamicClassType
+import miniscala.TypeChecker.StaticClassType
 
 /**
   * Unparser for MiniScala.
@@ -32,7 +34,7 @@ object Unparser {
         case NegUnOp() => "- " + expval
         case NotUnOp() => "!" + expval
       }
-    case BlockExp(vals, vars, defs, exps) =>
+    case BlockExp(vals, vars, defs, classes, exps) =>
       var str: String = "{ "
       for (v <- vals) {
         str += s"val ${v.x} = ${unparse(v.exp)};\n"
@@ -98,5 +100,8 @@ object Unparser {
       } else {
         x + ": " + opttype
       }
+    case StaticClassType(klass, _, _, _) => klass
+    case ClassNameType(klass) => klass
+    case DynamicClassType(x) => s"[line ${x.line}, column ${x.column}]"
   }
 }

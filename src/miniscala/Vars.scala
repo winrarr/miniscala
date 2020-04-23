@@ -13,10 +13,12 @@ object Vars {
     case BinOpExp(leftexp, _, rightexp) => freeVars(leftexp) ++ freeVars(rightexp)
     case UnOpExp(_, exp) => freeVars(exp)
     case IfThenElseExp(condexp, thenexp, elseexp) => freeVars(condexp) ++ freeVars(thenexp) ++ freeVars(elseexp)
-    case BlockExp(vals, vars, defs, exps) =>
+    case BlockExp(vals, vars, defs, classes, exps) =>
       var fv = Set[Id]()
       for (e2 <- exps)
         fv = fv ++ freeVars(e2)
+      for (d <- classes)
+        fv = fv ++ freeVars(d)
       for (d <- defs)
         fv = fv ++ freeVars(d)
       for (d <- defs)
@@ -35,21 +37,32 @@ object Vars {
         fv = fv ++ (freeVars(c.exp) -- c.pattern)
       fv
     case CallExp(funexp, args) =>
-      ???
+      var fv = Set[Id]()
+      for (exp <- args)
+        fv = fv ++ freeVars(exp)
+      fv
     case LambdaExp(params, body) => freeVars(body) -- params.map(p => p.x)
     case AssignmentExp(x, exp) => freeVars(exp) + x
     case WhileExp(guard, body) => freeVars(guard) ++ freeVars(body)
+    case NewObjExp(klass, args) =>
+      var fv = Set[Id]()
+      for (a <- args)
+        fv = fv ++ freeVars(a)
+      fv
+    case LookupExp(objexp, _) => freeVars(objexp)
   }
 
   def freeVars(decl: Decl): Set[Id] = decl match {
     case ValDecl(_, _, exp) => freeVars(exp)
     case VarDecl(_, _, exp) => freeVars(exp)
     case DefDecl(_, params, _, body) => freeVars(body) -- params.map(p => p.x)
+    case ClassDecl(_, params, body) => freeVars(body) -- params.map(p => p.x)
   }
 
   def declaredVars(decl: Decl): Set[Id] = decl match {
     case ValDecl(x, _, _) => Set(x)
     case VarDecl(x, _, _) => Set(x)
     case DefDecl(x, _, _, _) => Set(x)
+    case ClassDecl(_, _, _) => Set() // (case not used)
   }
 }

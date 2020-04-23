@@ -30,7 +30,7 @@ object Ast {
 
   case class IfThenElseExp(condexp: Exp, thenexp: Exp, elseexp: Exp) extends Exp
 
-  case class BlockExp(vals: List[ValDecl], vars: List[VarDecl], defs: List[DefDecl], exps: List[Exp]) extends Exp
+  case class BlockExp(vals: List[ValDecl], vars: List[VarDecl], defs: List[DefDecl], classes: List[ClassDecl], exps: List[Exp]) extends Exp
 
   case class TupleExp(exps: List[Exp]) extends Exp
 
@@ -44,6 +44,10 @@ object Ast {
 
   case class WhileExp(cond: Exp, body: Exp) extends Exp
 
+  case class NewObjExp(klass: Id, args: List[Exp]) extends Exp
+
+  case class LookupExp(objexp: Exp, member: Id) extends Exp
+
   /**
     * Literals.
     */
@@ -56,6 +60,8 @@ object Ast {
   case class FloatLit(c: Float) extends Literal
 
   case class StringLit(c: String) extends Literal
+
+  case class NullLit() extends Literal
 
   /**
     * Binary operators.
@@ -104,6 +110,8 @@ object Ast {
 
   case class DefDecl(fun: Id, params: List[FunParam], optrestype: Option[Type], body: Exp) extends Decl
 
+  case class ClassDecl(klass: Id, params: List[FunParam], body: BlockExp) extends Decl
+
   /**
     * Function parameters.
     */
@@ -130,6 +138,10 @@ object Ast {
   case class TupleType(types: List[Type]) extends Type
 
   case class FunType(paramtypes: List[Type], restype: Type) extends Type
+
+  case class ClassNameType(klass: Id) extends Type
+
+  case class NullType() extends Type
 
   /**
     * Exception with a message and (optionally) a source code position.

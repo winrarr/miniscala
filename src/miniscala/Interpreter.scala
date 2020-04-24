@@ -47,6 +47,17 @@ object Interpreter {
       (getValue(env.getOrElse(x, throw new InterpreterError(s"Unknown identifier '$x'", e)), sto), sto)
     case BinOpExp(leftexp, op, rightexp) =>
       val (leftval, sto1) = eval(leftexp, env, cenv, sto)
+      op match {
+        case AndAndBinOp() =>
+          leftval match {
+            case BoolVal(v1) => if (!v1) return (BoolVal(false), sto1)
+          }
+        case OrOrBinOp() =>
+          leftval match {
+            case BoolVal(v1) => if (v1) return (BoolVal(false), sto1)
+          }
+        case _ =>
+      }
       val (rightval, sto2) = eval(rightexp, env, cenv, sto1)
       op match {
         case PlusBinOp() =>
@@ -238,7 +249,19 @@ object Interpreter {
         }
       }
       (unitVal, sto2)
-
+    case DoWhileExp(body, cond) =>
+      var sto2 = sto
+      var looping = true
+      while (looping) {
+        val (cexp, sto1) = eval(cond, env, cenv, sto2)
+        sto2 = sto1
+        cexp match {
+          case BoolVal(x) => sto2 = eval(body, env, cenv, sto2)._2
+            if (!x) looping = false
+          case _ => throw new InterpreterError("Expected boolean value in while condition", e)
+        }
+      }
+      (unitVal, sto2)
     case NewObjExp(klass, args) =>
       val c = cenv.getOrElse(klass, throw new InterpreterError(s"Unknown class name '$klass'", e))
       val declcenv1 = rebindClasses(c.env, c.cenv, c.classes)
@@ -305,7 +328,6 @@ object Interpreter {
     // exps
     var res: Val = unitVal
     for (exp <- b.exps) {
-      val a = b.exps
       val (res1, sto2) = eval(exp, env1, cenv1, sto1)
       res = res1
       sto1 = sto2
@@ -336,6 +358,7 @@ object Interpreter {
     * otherwise, it must be a reference to a non-object value, so return that value.
     */
   def getValue(v: Val, sto: Sto): Val = v match {
+    case RefVal(-1, _) => v
     case RefVal(loc, _) =>
       sto(loc) match {
         case _: ObjectVal => v
@@ -411,6 +434,7 @@ object Interpreter {
     * Converts a value to its string representation (for error messages).
     */
   def valueToString(v: Val): String = v match {
+    case RefVal(-1, _) => "null"
     case IntVal(c) => c.toString
     case FloatVal(c) => c.toString
     case BoolVal(c) => c.toString

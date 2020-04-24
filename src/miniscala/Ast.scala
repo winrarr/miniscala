@@ -44,6 +44,8 @@ object Ast {
 
   case class WhileExp(cond: Exp, body: Exp) extends Exp
 
+  case class DoWhileExp(body: Exp, cond: Exp) extends Exp
+
   case class NewObjExp(klass: Id, args: List[Exp]) extends Exp
 
   case class LookupExp(objexp: Exp, member: Id) extends Exp
@@ -89,6 +91,10 @@ object Ast {
   case class AndBinOp() extends BinOp
 
   case class OrBinOp() extends BinOp
+
+  case class AndAndBinOp() extends BinOp
+
+  case class OrOrBinOp() extends BinOp
 
   /**
     * Unary operators.

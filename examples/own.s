@@ -1,16 +1,6 @@
-    {
-    class C() {
-      val a: Boolean = false
-    };
-      {
-        {
-          var x: C = new C();
-          class C() {
-            val a: Int = 42
-          };
-          {
-            val y: C = x
-          }
-        }
-      }
-    }
+{
+    var x: Int = 1;
+    do {
+        x = x + 1
+    } while (false)
+}

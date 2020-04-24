@@ -70,7 +70,7 @@ object TypeChecker {
             case (FloatType(), IntType()) => BoolType()
             case _ => throw new TypeError(s"Type mismatch at '<', unexpected types '${unparse(lefttype)}' and '${unparse(righttype)}'", op)
           }
-        case AndBinOp() | OrBinOp() =>
+        case AndBinOp() | OrBinOp() | AndAndBinOp() | OrOrBinOp() =>
           (lefttype, righttype) match {
             case (BoolType(), BoolType()) => BoolType()
             case _ => throw new TypeError(s"Type mismatch at '&', unexpected types '${unparse(lefttype)}' and '${unparse(righttype)}'", op)
@@ -140,13 +140,17 @@ object TypeChecker {
               }
               unitType
             case _ =>
-              checkTypesEqual(x, Option(typeCheck(exp, tenv, ctenv)), e)
+              checkSubtype(x, typeCheck(exp, tenv, ctenv), e)
               unitType
           }
         case _ => throw new TypeError("Reassignment to val", e)
       }
     case WhileExp(cond, body) =>
-      checkTypesEqual(typeCheck(cond, tenv, ctenv), Option(BoolType()), e)
+      checkSubtype(typeCheck(cond, tenv, ctenv), BoolType(), e)
+      typeCheck(body, tenv, ctenv)
+      unitType
+    case DoWhileExp(body, cond) =>
+      checkSubtype(typeCheck(cond, tenv, ctenv), BoolType(), e)
       typeCheck(body, tenv, ctenv)
       unitType
     case NewObjExp(klass, args) =>
@@ -156,7 +160,7 @@ object TypeChecker {
           if (args.length != b.params.length)
             throw new TypeError(s"Unexpected amount of parameters for class '$klass'", e)
           for (i <- args.indices) {
-            checkTypesEqual(typeCheck(args(i), tenv, ctenv1), getType(b.params(i).opttype, ctenv1), b)
+            checkSubtype(typeCheck(args(i), tenv, ctenv1), getType(b.params(i).opttype, ctenv1), b)
           }
           b
       }
@@ -175,14 +179,14 @@ object TypeChecker {
     // vals
     for (v <- b.vals) {
       val t = typeCheck(v.exp, tenv1, ctenv)
-      checkTypesEqual(t, getType(v.opttype, ctenv), v)
+      checkSubtype(t, getType(v.opttype, ctenv), v)
       tenv1 = tenv1 + (v.x -> getType(v.opttype.getOrElse(t), ctenv))
     }
 
     // vars
     for (v <- b.vars) {
       val t = typeCheck(v.exp, tenv1, ctenv)
-      checkTypesEqual(t, getType(v.opttype, ctenv), v)
+      checkSubtype(t, getType(v.opttype, ctenv), v)
       tenv1 = tenv1 + (v.x -> RefType(getType(v.opttype.getOrElse(t), ctenv)))
     }
 
@@ -192,7 +196,7 @@ object TypeChecker {
     }
     for (d <- b.defs) {
       val argsenv = d.params.map(f => f.x -> f.opttype.getOrElse(throw new TypeError(s"Unexpected type for parameter '${f.x}'", b)))
-      checkTypesEqual(typeCheck(d.body, tenv1 ++ argsenv, ctenv), d.optrestype, d)
+      checkSubtype(typeCheck(d.body, tenv1 ++ argsenv, ctenv), d.optrestype, d)
     }
 
     // classes
@@ -209,6 +213,30 @@ object TypeChecker {
     }
 
     (v, tenv1)
+  }
+
+  /**
+    * Checks whether `t1` is a subtype of `t2`.
+    */
+  def subtype(t1: Type, t2: Type): Boolean = (t1, t2) match {
+    case (NullType(), b: StaticClassType) => true // do nothing
+    case (a: StaticClassType, b: StaticClassType) => a.srcpos == b.srcpos
+    case (IntType(), FloatType()) => true
+    case (t1, t2) => t1 == t2
+  }
+
+  /**
+    * Checks whether `t1` is a subtype of `t2`, generates type error otherwise.
+    */
+  def checkSubtype(t1: Type, t2: Type, n: AstNode): Unit =
+    if (!subtype(t1, t2)) throw new TypeError(s"Type mismatch: type ${unparse(t1)} is not subtype of ${unparse(t2)}", n)
+
+  /**
+    * Checks whether `t1` is a subtype of `ot2` (if present), generates type error otherwise.
+    */
+  def checkSubtype(t: Type, ot2: Option[Type], n: AstNode): Unit = ot2 match {
+    case Some(t2) => checkSubtype(t, t2, n)
+    case None => // do nothing
   }
 
   /**

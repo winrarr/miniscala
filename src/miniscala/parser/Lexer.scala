@@ -20,11 +20,13 @@ object Lexer extends RegexParsers {
 
   private val keywords = Set("true", "false", "max", "if", "else", "while", "def", "val", "var", "match", "case", "class", "new", "null", "do")
 
-  def apply(code: String): List[MiniScalaToken] =
-    parse(tokens, code) match {
+  def apply(code: String): List[MiniScalaToken] = {
+    val a = parse(tokens, code)
+     a match {
       case NoSuccess(_, next) => throw new SyntaxError(getPosition(next))
       case Success(result, next) => result
     }
+  }
 
   private def tokens: Parser[List[MiniScalaToken]] =
     phrase(
@@ -73,7 +75,7 @@ object Lexer extends RegexParsers {
 
   private def literalNull = positioned { """null\b""".r ^^ { lit => NULL() } }
 
-  private def op = positioned { """\+|\*|-|/|<=|==|<|%|!|\||&|\|\||&&|max""".r ^^ { lit => OP(lit) } }
+  private def op = positioned { """\+|\*|-|/|<=|==|&&|<|%|!|\||&|\|\||max""".r ^^ { lit => OP(lit) } }
 
   private def simpleType = positioned { """(String|Int|Float|Boolean|Unit|Null)\b""".r ^^ { lit => SIMPLE_TYPE(lit) } }
 

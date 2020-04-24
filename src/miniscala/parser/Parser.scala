@@ -25,6 +25,7 @@ object Parser extends PackratParsers {
       case 8 =>
         ifthenelse |
           wwhile |
+          dowhile |
           assignment |
           lambda |
           expr(7)
@@ -77,6 +78,12 @@ object Parser extends PackratParsers {
   private lazy val wwhile: PackratParser[Exp] = positioned {
     (WWHILE() ~ LEFT_PAREN() ~ expr() ~ RIGHT_PAREN() ~ expr()) ^^ {
       case _ ~ _ ~ exp1 ~ _ ~ exp2 => WhileExp(exp1, exp2)
+    }
+  }
+
+  private lazy val dowhile: PackratParser[Exp] = positioned {
+    (DO() ~ expr() ~ WWHILE() ~ LEFT_PAREN() ~ expr() ~ RIGHT_PAREN()) ^^ {
+      case _ ~ exp1 ~ _ ~ _ ~ exp2 ~ _ => DoWhileExp(exp1, exp2)
     }
   }
 
@@ -273,9 +280,9 @@ object Parser extends PackratParsers {
       case 3 =>
         lt | lteq
       case 4 =>
-        and
+        and | andand
       case 5 =>
-        or
+        or | oror
       case 6 =>
         max
     }
@@ -313,6 +320,10 @@ object Parser extends PackratParsers {
   private lazy val and: PackratParser[BinOp] = OP("&") ^^ { _ => AndBinOp() }
 
   private lazy val or: PackratParser[BinOp] = OP("|") ^^ { _ => OrBinOp() }
+
+  private lazy val andand: PackratParser[BinOp] = OP("&&") ^^ { _ => AndAndBinOp() }
+
+  private lazy val oror: PackratParser[BinOp] = OP("||") ^^ { _ => OrOrBinOp() }
 
   private lazy val max: PackratParser[BinOp] = OP("max") ^^ { _ => MaxBinOp() }
 

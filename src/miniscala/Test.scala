@@ -9,9 +9,10 @@ object Test112 {
 
   def main(args: Array[String]): Unit = {
     // interpreter
-    testValFail("""{ var z = null; z.f }""")
-    testVal("""{ class C() { }; { var x: C = null; x = new C() } }""".stripMargin, TupleVal(List[Val]()))
-    testVal("""{ class C() { }; { var x: C = new C(); x = null } }""".stripMargin, TupleVal(List[Val]()))
+//    testValFail("""{ var z = null; z.f }""")
+//    testVal("""{ class C() { }; { var x: C = null; x = new C() } }""".stripMargin, TupleVal(List[Val]()))
+//    testVal("""{ class C() { }; { var x: C = new C(); x = null } }""".stripMargin, TupleVal(List[Val]()))
+    testVal("""{ class C() { }; class D() { }; { var x: C = new C(); var z: C = new C(); x = null } }""".stripMargin, TupleVal(List[Val]()))
 
     // typechecker
     testTypeFail("{ class A() {}; new B() }")

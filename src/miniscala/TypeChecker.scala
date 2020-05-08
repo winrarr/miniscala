@@ -127,7 +127,7 @@ object TypeChecker {
         case _ => throw new TypeError(s"Unknown function '$funexp'", e)
       }
     case LambdaExp(params, body) =>
-      val paramTypes = params.map(p => p.x -> p.opttype.getOrElse(throw new TypeError(s"Type annotation missing at parameter ${p.x}", p)))
+      val paramTypes = params.map(p => p.x -> getType(p.opttype, ctenv).getOrElse(throw new TypeError(s"Type annotation missing at parameter ${p.x}", p)))
       FunType(paramTypes.map(p => p._2), typeCheck(body, tenv ++ paramTypes, ctenv))
     case AssignmentExp(x, exp) =>
       val h = tenv.getOrElse(x, throw new TypeError(s"Unknown identifier '$x'", e))
@@ -156,11 +156,10 @@ object TypeChecker {
     case NewObjExp(klass, args) =>
       ctenv.getOrElse(klass, throw new TypeError(s"Unknown class name '$klass'", e)) match {
         case b: StaticClassType =>
-          val ctenv1 = rebindClasses(ctenv)
           if (args.length != b.params.length)
             throw new TypeError(s"Unexpected amount of parameters for class '$klass'", e)
           for (i <- args.indices) {
-            checkSubtype(typeCheck(args(i), tenv, ctenv1), getType(b.params(i).opttype, ctenv1), b)
+            checkSubtype(typeCheck(args(i), tenv, ctenv), getType(b.params(i).opttype, ctenv), b)
           }
           b
       }
@@ -178,30 +177,30 @@ object TypeChecker {
 
     // vals
     for (v <- b.vals) {
-      val t = typeCheck(v.exp, tenv1, ctenv)
-      checkSubtype(t, getType(v.opttype, ctenv), v)
-      tenv1 = tenv1 + (v.x -> getType(v.opttype.getOrElse(t), ctenv))
+      val t = typeCheck(v.exp, tenv1, ctenv1)
+      checkSubtype(t, getType(v.opttype, ctenv1), v)
+      tenv1 = tenv1 + (v.x -> getType(v.opttype.getOrElse(t), ctenv1))
     }
 
     // vars
     for (v <- b.vars) {
-      val t = typeCheck(v.exp, tenv1, ctenv)
-      checkSubtype(t, getType(v.opttype, ctenv), v)
-      tenv1 = tenv1 + (v.x -> RefType(getType(v.opttype.getOrElse(t), ctenv)))
+      val t = typeCheck(v.exp, tenv1, ctenv1)
+      checkSubtype(t, getType(v.opttype, ctenv1), v)
+      tenv1 = tenv1 + (v.x -> RefType(getType(v.opttype.getOrElse(t), ctenv1)))
     }
 
     // defs
     for (d <- b.defs) {
-      tenv1 = tenv1 + (d.fun -> getFunType(d))
+      tenv1 = tenv1 + (d.fun -> getType(getFunType(d), ctenv1))
     }
     for (d <- b.defs) {
-      val argsenv = d.params.map(f => f.x -> f.opttype.getOrElse(throw new TypeError(s"Unexpected type for parameter '${f.x}'", b)))
-      checkSubtype(typeCheck(d.body, tenv1 ++ argsenv, ctenv), d.optrestype, d)
+      val argsenv = d.params.map(f => f.x -> getType(f.opttype, ctenv1).getOrElse(throw new TypeError(s"Unexpected type for parameter '${f.x}'", b)))
+      checkSubtype(typeCheck(d.body, tenv1 ++ argsenv, ctenv1), d.optrestype, d)
     }
 
     // classes
     for (d <- b.classes) {
-      var classInsideEnv: TypeEnv = d.params.map(p => (p.x -> p.opttype.getOrElse(throw new TypeError(s"Expected parameter type, but found none", d)))).toMap
+      var classInsideEnv: TypeEnv = d.params.map(p => (p.x -> getType(p.opttype, ctenv1).getOrElse(throw new TypeError(s"Expected parameter type, but found none", d)))).toMap
       classInsideEnv = classInsideEnv ++ typeCheckBlock(d.body, classInsideEnv, ctenv1)._2
       ctenv1 = ctenv1 + (d.klass -> StaticClassType(d.klass, d.pos, d.params, classInsideEnv))
     }
@@ -222,6 +221,16 @@ object TypeChecker {
     case (NullType(), b: StaticClassType) => true // do nothing
     case (a: StaticClassType, b: StaticClassType) => a.srcpos == b.srcpos
     case (IntType(), FloatType()) => true
+    case (TupleType(a), TupleType(b)) =>
+      for (i <- a.indices) {
+        if (!subtype(a(i), b(i))) return false
+      }
+      true
+    case (FunType(a, b), FunType(c, d)) =>
+      for (i <- a.indices) {
+        if (!subtype(a(i), c(i))) return false
+      }
+      subtype(b, d)
     case (t1, t2) => t1 == t2
   }
 

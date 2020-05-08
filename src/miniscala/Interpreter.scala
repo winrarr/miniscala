@@ -298,8 +298,8 @@ object Interpreter {
 
     // vals
     for (d <- b.vals) {
-      val (v, sto2) = eval(d.exp, env1, cenv, sto1)
-      val ot = getType(d.opttype, cenv)
+      val (v, sto2) = eval(d.exp, env1, cenv1, sto1)
+      val ot = getType(d.opttype, cenv1)
       checkValueType(v, ot, b)
       sto1 = sto2
       env1 = env1 + (d.x -> v)
@@ -307,8 +307,8 @@ object Interpreter {
 
     // vars
     for (d <- b.vars) {
-      val (v, sto2) = eval(d.exp, env1, cenv, sto1)
-      val ot = getType(d.opttype, cenv)
+      val (v, sto2) = eval(d.exp, env1, cenv1, sto1)
+      val ot = getType(d.opttype, cenv1)
       checkValueType(v, ot, b)
       val loc = nextLoc(sto)
       sto1 = sto2 + (loc -> v)

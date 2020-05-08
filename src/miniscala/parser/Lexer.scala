@@ -20,13 +20,11 @@ object Lexer extends RegexParsers {
 
   private val keywords = Set("true", "false", "max", "if", "else", "while", "def", "val", "var", "match", "case", "class", "new", "null", "do")
 
-  def apply(code: String): List[MiniScalaToken] = {
-    val a = parse(tokens, code)
-     a match {
+  def apply(code: String): List[MiniScalaToken] =
+    parse(tokens, code) match {
       case NoSuccess(_, next) => throw new SyntaxError(getPosition(next))
       case Success(result, next) => result
     }
-  }
 
   private def tokens: Parser[List[MiniScalaToken]] =
     phrase(

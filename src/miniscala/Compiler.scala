@@ -41,9 +41,15 @@ object Compiler {
         case IfThenElseExp(condexp, thenexp, elseexp) =>
           compile(condexp, idstack) ++ List(Branch(compile(thenexp, idstack), compile(elseexp, idstack)))
         case BlockExp(vals, Nil, Nil, Nil, List(exp)) =>
-          ???
+          var inst = List[Instruction]()
+          var ids = idstack
+          for (v <- vals) {
+            inst = inst ++ compile(v.exp, ids) ++ List(EnterScope)
+            ids = v.x :: ids
+          }
+          (inst ++ compile(exp, ids)) ++ List(ExitScope(vals.length))
         case VarExp(x) =>
-          ???
+          List(Read(lookup(x, idstack)))
         case _ => throw new CompilerError(e)
       }
 
